@@ -69,4 +69,21 @@ public void setUp() throws NamingException, JMSException {
 
         jmsPublisher.publish(validMessage);
     }
+
+// Inside your test class setup
+@Mock
+private JmsPublisher jmsPublisher;
+
+@Before
+public void setUp() {
+    // Mock the getConnection method behavior
+    when(jmsPublisher.getConnection(any(), any(), any())).thenReturn(mock(Connection.class));
+}
+
+@Test
+public void testPublishValidMessage() {
+    // Test the publish method using the mocked getConnection
+    // and other necessary mocks.
+}
+
 }
