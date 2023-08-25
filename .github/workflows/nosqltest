@@ -1,0 +1,64 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+@SpringBootTest
+public class PaymentInfoRepositoryTest {
+
+    @InjectMocks
+    private PaymentInfoRepository paymentInfoRepository;
+
+    @Mock
+    private MongoTemplate mongoTemplate;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void testFindByTransactionIdAndCreatedAtBetween() {
+        // Setup
+        String transactionId = "123456";
+        LocalDateTime startTime = LocalDateTime.of(2023, 1, 1, 0, 0);
+        LocalDateTime endTime = LocalDateTime.of(2023, 1, 31, 23, 59);
+
+        PaymentInfo paymentInfo1 = new PaymentInfo();
+        paymentInfo1.setTransactionId(transactionId);
+        paymentInfo1.setCreatedAt(LocalDateTime.of(2023, 1, 15, 12, 0));
+
+        PaymentInfo paymentInfo2 = new PaymentInfo();
+        paymentInfo2.setTransactionId(transactionId);
+        paymentInfo2.setCreatedAt(LocalDateTime.of(2023, 1, 20, 15, 30));
+
+        List<PaymentInfo> paymentInfoList = new ArrayList<>();
+        paymentInfoList.add(paymentInfo1);
+        paymentInfoList.add(paymentInfo2);
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where("transactionId").is(transactionId)
+                .and("createdAt").gte(startTime).lte(endTime));
+
+        when(mongoTemplate.find(query, PaymentInfo.class)).thenReturn(paymentInfoList);
+
+        // Test
+        List<PaymentInfo> result = paymentInfoRepository.findByTransactionIdAndCreatedAtBetween(transactionId, startTime, endTime);
+
+        // Assert
+        assertEquals(paymentInfoList, result);
+        verify(mongoTemplate, times(1)).find(query, PaymentInfo.class);
+    }
+}
