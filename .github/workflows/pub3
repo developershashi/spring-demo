@@ -1,0 +1,63 @@
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.jms.core.JmsTemplate;
+
+import javax.jms.Connection;
+import javax.jms.JMSException;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+import javax.naming.NamingException;
+
+import static org.mockito.Mockito.*;
+
+@RunWith(MockitoJUnitRunner.class)
+public class JmsPublisherTest {
+
+    @InjectMocks
+    private JmsPublisher jmsPublisher;
+
+    @Mock
+    private Connection connection;
+
+    @Mock
+    private Session session;
+
+    @Mock
+    private MessageProducer messageProducer;
+
+    @Mock
+    private JmsTemplate jmsTemplate;
+
+    @Before
+    public void setUp() throws NamingException, JMSException {
+        when(jmsTemplate.getConnectionFactory()).thenReturn(() -> connection);
+        when(connection.createSession(anyBoolean(), anyInt())).thenReturn(session);
+        when(session.createProducer(any())).thenReturn(messageProducer);
+    }
+
+    @Test
+    public void testPublishValidMessage() throws JMSException {
+        String validMessage = "Hello, World!";
+
+        jmsPublisher.publish(validMessage);
+
+        verify(session, times(1)).createTextMessage();
+        verify(messageProducer, times(1)).setDeliveryMode(DeliveryMode.PERSISTENT);
+        verify(messageProducer, times(1)).send(any(TextMessage.class));
+        verify(session, times(1)).commit();
+        verify(session, never()).rollback();
+    }
+
+    @Test(expected = JMSException.class)
+    public void testPublishJMSException() throws JMSException {
+        String validMessage = "Hello, World!";
+        doThrow(new JMSException("Test JMSException")).when(session).createTextMessage();
+
+        jmsPublisher.publish(validMessage);
+    }
+}
