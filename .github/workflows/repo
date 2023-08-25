@@ -1,0 +1,44 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@DataMongoTest
+public class PaymentInfoRepositoryTest {
+
+    @Autowired
+    private PaymentInfoRepository paymentInfoRepository;
+
+    @Autowired
+    private TestEntityManager entityManager; // Required for JPA tests
+
+    @Test
+    public void testFindByTransactionIdAndCreatedAtBetween() {
+        // Create and save PaymentInfo entities using the entityManager (if needed)
+        PaymentInfo paymentInfo1 = new PaymentInfo();
+        paymentInfo1.setTransactionId("123");
+        paymentInfo1.setCreatedAt(LocalDateTime.now());
+
+        PaymentInfo paymentInfo2 = new PaymentInfo();
+        paymentInfo2.setTransactionId("123");
+        paymentInfo2.setCreatedAt(LocalDateTime.now());
+
+        entityManager.persist(paymentInfo1);
+        entityManager.persist(paymentInfo2);
+
+        // Perform the test
+        List<PaymentInfo> result = paymentInfoRepository.findByTransactionIdAndCreatedAtBetween(
+            "123",
+            LocalDateTime.now().minusDays(1),
+            LocalDateTime.now().plusDays(1)
+        );
+
+        // Assert
+        assertEquals(2, result.size());
+    }
+}
