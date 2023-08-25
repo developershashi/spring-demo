@@ -39,6 +39,15 @@ public class JmsPublisherTest {
         when(connection.createSession(anyBoolean(), anyInt())).thenReturn(session);
         when(session.createProducer(any())).thenReturn(messageProducer);
     }
+@Before
+public void setUp() throws NamingException, JMSException {
+    ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+    when(jmsTemplate.getConnectionFactory()).thenReturn(mockConnectionFactory);
+    when(mockConnectionFactory.createConnection()).thenReturn(connection);
+
+    when(connection.createSession(anyBoolean(), anyInt())).thenReturn(session);
+    when(session.createProducer(any())).thenReturn(messageProducer);
+}
 
     @Test
     public void testPublishValidMessage() throws JMSException {
