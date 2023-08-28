@@ -90,5 +90,13 @@ class DataProcessorTest {
 
         // Assert: Verify log.error is called
         // You would typically use a logging framework testing library to verify log statements
+
+ // Assert: Verify log.error is called
+        List<LogEvent> logEvents = listAppender.getEvents();
+        boolean logErrorFound = logEvents.stream()
+                .anyMatch(event -> event.getMessage().getFormattedMessage()
+                        .contains("Failed to update transaction data for transaction ID failedTransactionId into the database with status IN-PROCESS"));
+
+        assertTrue(logErrorFound);
     }
 }
