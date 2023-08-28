@@ -1,0 +1,64 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.camel.ProducerTemplate;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.mockito.Mockito.*;
+
+public class DataProcessorTest {
+
+    @InjectMocks
+    private DataProcessor dataProcessor;
+
+    @Mock
+    private PaymentService paymentService;
+
+    @Mock
+    private ProducerTemplate producerTemplate;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    @Before
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void testUpdatePaymentInfoStatus_Success() {
+        // Prepare test data
+        Map<String, Object> gpsRequestMap = new HashMap<>();
+        Map<String, Object> cashMovementModelMap = new HashMap<>();
+        cashMovementModelMap.put("sourceReference", "12345");
+        gpsRequestMap.put("cashMovementModel", cashMovementModelMap);
+
+        // Mock behavior
+        when(paymentService.update0penTransactionsToInProcess("12345")).thenReturn(true);
+
+        // Call the method to test
+        dataProcessor.updatePaymentInfoStatus(gpsRequestMap);
+
+        // Verify interactions
+        verify(paymentService, times(1)).update0penTransactionsToInProcess("12345");
+        verifyNoMoreInteractions(paymentService);
+        verifyZeroInteractions(producerTemplate, objectMapper);
+    }
+
+    @Test
+    public void testUpdatePaymentInfoStatus_InvalidData() {
+        // Prepare test data with missing fields
+        Map<String, Object> gpsRequestMap = new HashMap<>();
+
+        // Call the method to test
+        dataProcessor.updatePaymentInfoStatus(gpsRequestMap);
+
+        // Verify no interactions with the services
+        verifyZeroInteractions(paymentService, producerTemplate, objectMapper);
+    }
+}
