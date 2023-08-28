@@ -1,0 +1,62 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class PaymentServiceImplTest {
+
+    @Mock
+    private PaymentInfoRepository paymentInfoRepository;
+
+    private PaymentServiceImpl paymentService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        paymentService = new PaymentServiceImpl(paymentInfoRepository);
+    }
+
+    @Test
+    void testUpdateOpenTransactionsToInProcess_Success() {
+        // Arrange
+        String transactionId = "transaction123";
+        PaymentInfo paymentInfo = new PaymentInfo();
+        paymentInfo.setTransactionId(transactionId);
+        paymentInfo.setTransactionStatus(TRANSACTION_STATUS_OPEN);
+
+        when(paymentInfoRepository.findByTransactionIdAndTransactionStatus(transactionId, TRANSACTION_STATUS_OPEN))
+            .thenReturn(paymentInfo);
+
+        // Act
+        Optional<PaymentInfo> updatedPaymentInfo = paymentService.updateOpenTransactionsToInProcess(transactionId);
+
+        // Assert
+        assertTrue(updatedPaymentInfo.isPresent());
+        assertEquals(TRANSACTION_STATUS_IN_PROCESS, paymentInfo.getTransactionStatus());
+        assertNotNull(paymentInfo.getLastModifiedAt());
+        verify(paymentInfoRepository).save(paymentInfo);
+        verifyNoMoreInteractions(paymentInfoRepository);
+    }
+
+    @Test
+    void testUpdateOpenTransactionsToInProcess_TransactionNotFound() {
+        // Arrange
+        String transactionId = "nonexistentTransaction";
+
+        when(paymentInfoRepository.findByTransactionIdAndTransactionStatus(transactionId, TRANSACTION_STATUS_OPEN))
+            .thenReturn(null);
+
+        // Act
+        Optional<PaymentInfo> updatedPaymentInfo = paymentService.updateOpenTransactionsToInProcess(transactionId);
+
+        // Assert
+        assertFalse(updatedPaymentInfo.isPresent());
+        verifyNoInteractions(paymentInfoRepository);
+    }
+}
