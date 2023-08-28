@@ -110,4 +110,19 @@ class DataProcessorTest {
 
         assertTrue(logErrorFound);
     }
+
+///////
+ // Assert: Verify log.error is called
+        verify(paymentService).updateOpenTransactionsToInProcess("failedTransactionId");
+        verify(producerTemplate, never()).send(any());
+        verify(objectMapper, never()).writeValueAsString(any());
+
+        verify(paymentService, never()).updateOpenTransactionsToInProcess("validTransactionId");
+        verify(producerTemplate, never()).send(any());
+        verify(objectMapper, never()).writeValueAsString(any());
+
+        // Extract captured log messages and assert
+        verify(paymentService).updateOpenTransactionsToInProcess("failedTransactionId");
+        verify(producerTemplate, never()).send(any());
+        verify(objectMapper, never()).writeValueAsString(any());
 }
