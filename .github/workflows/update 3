@@ -1,0 +1,94 @@
+package com.odhiambopaul.demo;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+class DataProcessorTest {
+
+    @Mock
+    private PaymentService paymentService;
+
+    @Mock
+    private ProducerTemplate producerTemplate;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    private DataProcessor dataProcessor;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        dataProcessor = new DataProcessor(paymentService, producerTemplate, objectMapper);
+    }
+
+    @Test
+    void testUpdatePaymentInfoStatus_ValidTransaction() {
+        // Arrange
+        Map<String, Object> gpsRequestMap = new HashMap<>();
+        Map<String, Object> cashMovementModelMap = new HashMap<>();
+        cashMovementModelMap.put("SOURCE_REFERENCE", "validTransactionId");
+        gpsRequestMap.put("CASH_MOVEMENT_MODEL", cashMovementModelMap);
+
+        when(paymentService.updateOpenTransactionsToInProcess(anyString()))
+            .thenReturn(Optional.of(new PaymentInfo()));
+
+        // Act
+        dataProcessor.updatePaymentInfoStatus(gpsRequestMap);
+
+        // Assert
+        verify(paymentService).updateOpenTransactionsToInProcess("validTransactionId");
+    }
+
+    @Test
+    void testUpdatePaymentInfoStatus_NullGpsRequestMap() {
+        // Act
+        dataProcessor.updatePaymentInfoStatus(null);
+
+        // Assert: Ensure that no interaction happens with the paymentService
+        verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    void testUpdatePaymentInfoStatus_EmptyTransactionId() {
+        // Arrange
+        Map<String, Object> gpsRequestMap = new HashMap<>();
+        Map<String, Object> cashMovementModelMap = new HashMap<>();
+        cashMovementModelMap.put("SOURCE_REFERENCE", "");
+        gpsRequestMap.put("CASH_MOVEMENT_MODEL", cashMovementModelMap);
+
+        // Act
+        dataProcessor.updatePaymentInfoStatus(gpsRequestMap);
+
+        // Assert: Ensure that no interaction happens with the paymentService
+        verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    void testUpdatePaymentInfoStatus_FailedUpdate() {
+        // Arrange
+        Map<String, Object> gpsRequestMap = new HashMap<>();
+        Map<String, Object> cashMovementModelMap = new HashMap<>();
+        cashMovementModelMap.put("SOURCE_REFERENCE", "failedTransactionId");
+        gpsRequestMap.put("CASH_MOVEMENT_MODEL", cashMovementModelMap);
+
+        when(paymentService.updateOpenTransactionsToInProcess(anyString()))
+            .thenReturn(Optional.empty());
+
+        // Act
+        dataProcessor.updatePaymentInfoStatus(gpsRequestMap);
+
+        // Assert: Verify log.error is called
+        // You would typically use a logging framework testing library to verify log statements
+    }
+}
