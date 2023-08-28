@@ -30,8 +30,19 @@ class DataProcessorTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         dataProcessor = new DataProcessor(paymentService, producerTemplate, objectMapper);
+ // Set up Log4j ListAppender to capture log events
+        listAppender = new ListAppender("TestAppender");
+        Configurator.setLevel(dataProcessor.getClass().getName(), Level.ERROR);
+        ((Logger) org.apache.logging.log4j.LogManager.getLogger(dataProcessor.getClass())).addAppender(listAppender);
+  
     }
 
+ @AfterEach
+    void tearDown() {
+        // Remove the appender and reset the logger configuration
+        ((Logger) org.apache.logging.log4j.LogManager.getLogger(dataProcessor.getClass())).removeAppender(listAppender);
+        Configurator.setLevel(dataProcessor.getClass().getName(), Level.ALL);
+    }
     @Test
     void testUpdatePaymentInfoStatus_ValidTransaction() {
         // Arrange
