@@ -1,0 +1,86 @@
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import javax.jms.Connection;
+import javax.jms.JMSException;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+
+import static org.mockito.Mockito.*;
+
+/**
+ * Unit tests for the JmsPublisher class.
+ */
+public class JmsPublisherTest {
+
+    @Mock
+    private Connection mockConnection;
+    @Mock
+    private Session mockSession;
+    @Mock
+    private MessageProducer mockMessageProducer;
+
+    private JmsPublisher jmsPublisher;
+
+    /**
+     * Setup method to initialize mock objects and the JmsPublisher instance before each test.
+     *
+     * @throws Exception If there is an issue with setup.
+     */
+    @Before
+    public void setUp() throws Exception {
+        MockitoAnnotations.openMocks(this);
+
+        jmsPublisher = new JmsPublisher(mockConnection, mockSession, mockMessageProducer);
+    }
+
+    /**
+     * Teardown method to verify that JMS resources are closed after each test.
+     *
+     * @throws Exception If there is an issue with teardown.
+     */
+    @After
+    public void tearDown() throws Exception {
+        verify(mockMessageProducer, times(1)).close();
+        verify(mockSession, times(1)).close();
+        verify(mockConnection, times(1)).close();
+    }
+
+    /**
+     * Test the publish method with a valid message.
+     *
+     * @throws Exception If there is an issue with the test.
+     */
+    @Test
+    public void testPublishValidMessage() throws Exception {
+        String message = "Test message";
+
+        jmsPublisher.publish(message);
+
+        verify(mockSession, times(1)).createTextMessage();
+        verify(mockMessageProducer, times(1)).setDeliveryMode(DeliveryMode.PERSISTENT);
+        verify(mockMessageProducer, times(1)).send(any());
+        verify(mockSession, times(1)).commit();
+    }
+
+    /**
+     * Test the publish method with a JMSException during message creation.
+     *
+     * @throws Exception If there is an issue with the test.
+     */
+    @Test(expected = JMSException.class)
+    public void testPublishWithJMSException() throws Exception {
+        String message = "Test message";
+
+        when(mockSession.createTextMessage()).thenThrow(new JMSException("JMS Exception"));
+
+        jmsPublisher.publish(message);
+
+        verify(mockSession, times(1)).rollback();
+    }
+
+    // Add more test cases for edge cases and different scenarios as needed
+}
