@@ -1,0 +1,31 @@
+import java.util.Optional;
+
+public Optional<PaymentInfo> processResponse(GpsResponse gpsResponse) {
+    if (gpsResponse == null || 
+        gpsResponse.getSourceTransactionId() == null ||
+        gpsResponse.getResponseCode() == null) {
+        log.error("Invalid or incomplete GpsResponse received.");
+        return Optional.empty();
+    }
+
+    log.info("Processing Response - TransactionId: {}, ResponseCode: {}",
+        gpsResponse.getSourceTransactionId(), gpsResponse.getResponseCode());
+
+    try {
+        Optional<PaymentInfo> paymentInfo = paymentInfoRepository
+            .findFirstByTransactionIdOrderByCreatedAtDesc(gpsResponse.getSourceTransactionId());
+
+        if (paymentInfo.isPresent()) {
+            PaymentInfo updatedPaymentInfo = AppUtils.buildPaymentInfo(gpsResponse, paymentInfo.get());
+            PaymentInfo savedPaymentInfo = paymentInfoRepository.save(updatedPaymentInfo);
+            return Optional.of(savedPaymentInfo);
+        } else {
+            log.error("{} Encountered unexpected response for transactionId: {}",
+                FABRIC_ALERT_PREFIX, gpsResponse.getSourceTransactionId());
+            return Optional.empty();
+        }
+    } catch (Exception e) {
+        log.error("Error processing response for transactionId: {}", gpsResponse.getSourceTransactionId(), e);
+        return Optional.empty();
+    }
+}
