@@ -1,0 +1,11 @@
+/1 Ensure that producerTemplate is properly configured to capture the argumen
+ArgumentCaptor<String> destinationCaptor = ArgumentCaptor. forClass(String.cla
+ArgumentCaptor<String> bodyCaptor
+= ArgumentCaptor.forClass(String.class);
+jmsSubscriber.messageListener();
+// Verify that producerTemplate. sendBody is called with the expected argument
+verify (producerTemplate) .sendBody (destinationÇaptor. capture(),| bodyCaptor.cap
+// Check the captured arguments
+assertEquals( "direct: emsConsumer", destinationCaptor.getValue());
+assertNotNull(bodyCaptor.getValue()); // You can add more specific asse
+verify(session) .commit();
