@@ -1,0 +1,14 @@
+TextMessage textMessage = mock(TextMessage.class) ;
+when (textlessage.getText()). thenReturn("Test Message")
+// Configure messageConsumer to capture the MessageListener
+ArgumentCaptor<MessageListener> listenerCaptor = ArgumentCaptor.forClass(l
+doNothing().when (messageConsumer) . setMessageListener(listenerCaptor.captu
+// Trigger the MessageListener manually with the TextMessage
+jmsSubscriber.messageListener();
+/ Get the captured MessageListener
+MessageListener' capturedListener = listenerCaptor.getValue();
+// Simulate a TextMessage being received
+capturedListener.onMessage(textMessage).
+/1 Verify that producerTemplate.sendBody is called with the expected argun
+verify(producerTemplate) ,sendBody(eq("direct: emsConsumer"), eq( "Test Mess
+verify(session) .commit();
