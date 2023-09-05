@@ -1,0 +1,88 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+import org.springframework.jms.connection.ConnectionFactoryUtils;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.support.converter.SimpleMessageConverter;
+
+import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
+import javax.jms.MessageConsumer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+
+import static org.mockito.Mockito.*;
+
+public class JmsSubscriberTest {
+
+    @InjectMocks
+    private JmsSubscriber jmsSubscriber;
+
+    @Mock
+    private ProducerTemplate producerTemplate;
+
+    @Mock
+    private ConnectionFactory connectionFactory;
+
+    @Mock
+    private Connection connection;
+
+    @Mock
+    private Session session;
+
+    @Mock
+    private MessageConsumer messageConsumer;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
+
+        when(connectionFactory.createConnection()).thenReturn(connection);
+        when(connection.createSession(false, Session.AUTO_ACKNOWLEDGE)).thenReturn(session);
+        when(session.createConsumer(any())).thenReturn(messageConsumer);
+    }
+
+    @Test
+    public void testMessageListener() throws Exception {
+        TextMessage textMessage = mock(TextMessage.class);
+        when(messageConsumer.receive()).thenReturn(textMessage);
+
+        jmsSubscriber.messageListener();
+
+        // Verify that producerTemplate.sendBody is called with the expected arguments
+        verify(producerTemplate).sendBody(eq("direct:emsConsumer"), anyString());
+        verify(session).commit();
+    }
+
+    @Test
+    public void testMessageListenerWithJMSException() throws Exception {
+        when(messageConsumer.receive()).thenThrow(new JMSException("Test JMSException"));
+
+        // The JMSException should be caught, logged, and rethrown as a RuntimeException
+        assertThrows(RuntimeException.class, () -> jmsSubscriber.messageListener());
+
+        verify(producerTemplate, never()).sendBody(eq("direct:emsConsumer"), anyString());
+        verify(session, never()).commit();
+    }
+
+    @Test
+    public void testCleanup() throws Exception {
+        jmsSubscriber.cleanup();
+
+        verify(messageConsumer).close();
+        verify(session).close();
+        verify(connection).close();
+    }
+
+    @Test
+    public void testCleanupWithJMSException() throws Exception {
+        doThrow(new JMSException("Test JMSException")).when(messageConsumer).close();
+
+        // The JMSException should be caught and logged
+        jmsSubscriber.cleanup();
+
+        verify(session).close();
+        verify(connection).close();
+    }
+}
