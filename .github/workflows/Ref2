@@ -1,0 +1,11 @@
+public void testMessageListenerWithJMSException() throws Exception {
+// Configure messageConsumer to capture the MessageListener
+ArgumentCaptor<MessageListener> listenerCaptor = ArgumentCaptor.for
+doNothing () .when (messageConsumer ) .setMessageListener(listenerCaptor.
+// Configure the MessageListener to throw a JMSException
+listenerCaptor.getValue().onMessage(textMessage);
+when (textMessage.getText()). thenThrow(new IMSException("Test JMSExce
+// Verify that RuntimeException is thrown when the MessageListener
+assertThrows (RuntimeException.class, () -> capturedListener.onMessag
+verify(producerTemplate, never()).sendBody(eq( "direct: emsConsumer")
+verify(session, never ()).commit();
