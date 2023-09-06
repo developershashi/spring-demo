@@ -1,0 +1,96 @@
+import org.apache.camel.ProducerTemplate;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import javax.jms.*;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class JmsSubscriberTest {
+
+    @InjectMocks
+    private JmsSubscriber jmsSubscriber;
+
+    @Mock
+    private ProducerTemplate producerTemplate;
+
+    @Mock
+    private Connection connection;
+
+    @Mock
+    private Session session;
+
+    @Mock
+    private MessageConsumer messageConsumer;
+
+    @Mock
+    private TextMessage textMessage;
+
+    @Mock
+    private BytesMessage bytesMessage;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void testMessageListenerWithTextMessage() throws Exception {
+        // Create a TextMessage mock
+        when(textMessage.getText()).thenReturn("Test Message");
+        when(messageConsumer.receive()).thenReturn(textMessage);
+
+        jmsSubscriber.messageListener();
+
+        // Verify that producerTemplate.sendBody is called with the expected arguments
+        verify(producerTemplate).sendBody(eq("direct:emsConsumer"), eq("Test Message"));
+        verify(session).commit();
+    }
+
+    @Test
+    public void testMessageListenerWithBytesMessage() throws Exception {
+        // Create a BytesMessage mock
+        byte[] bytes = "Test Bytes Message".getBytes();
+        when(bytesMessage.getBodyLength()).thenReturn((long) bytes.length);
+        when(bytesMessage.readBytes(any(byte[].class))).thenAnswer(invocation -> {
+            byte[] targetArray = invocation.getArgument(0);
+            System.arraycopy(bytes, 0, targetArray, 0, bytes.length);
+            return bytes.length;
+        });
+        when(messageConsumer.receive()).thenReturn(bytesMessage);
+
+        jmsSubscriber.messageListener();
+
+        // Verify that producerTemplate.sendBody is called with the expected arguments
+        verify(producerTemplate).sendBody(eq("direct:emsConsumer"), eq("Test Bytes Message"));
+        verify(session).commit();
+    }
+
+    @Test
+    public void testMessageListenerWithUnexpectedMessageType() throws Exception {
+        // Create a Message mock of an unexpected type
+        Message unexpectedMessage = mock(Message.class);
+        when(messageConsumer.receive()).thenReturn(unexpectedMessage);
+
+        jmsSubscriber.messageListener();
+
+        // Verify that producerTemplate.sendBody and session.commit are never called for unexpected message type
+        verify(producerTemplate, never()).sendBody(eq("direct:emsConsumer"), any());
+        verify(session, never()).commit();
+    }
+
+    @Test
+    public void testMessageListenerWithJMSException() throws Exception {
+        when(messageConsumer.receive()).thenThrow(new JMSException("Test JMSException"));
+
+        // The JMSException should be caught, logged, and rethrown as a RuntimeException
+        assertThrows(RuntimeException.class, () -> jmsSubscriber.messageListener());
+
+        verify(producerTemplate, never()).sendBody(eq("direct:emsConsumer"), any());
+        verify(session, never()).commit();
+    }
+    
+    // ... Other test methods ...
+}
