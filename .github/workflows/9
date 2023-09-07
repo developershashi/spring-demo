@@ -1,0 +1,125 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.Security;
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.bcpg.ArmoredOutputStream;
+import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.openpgp.operator.PBESecretKeyDecryptor;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePGPDataEncryptorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyDataEncryptorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyKeyEncryptionMethodGenerator;
+import org.bouncycastle.util.io.Streams;
+
+public class PgpEncryptionDecryptionExample {
+
+    public static void main(String[] args) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Generate PGP key pair for demonstration purposes (replace with actual keys)
+        PGPKeyPair keyPair = generatePgpKeyPair();
+
+        // Data to be encrypted
+        String plaintext = "This is a secret message.";
+
+        // Encrypt the data
+        byte[] encryptedData = encryptData(plaintext, keyPair.getPublicKey());
+
+        // Decrypt the data
+        String decryptedData = decryptData(encryptedData, keyPair.getPrivateKey());
+
+        System.out.println("Original Message: " + plaintext);
+        System.out.println("Encrypted Message: " + new String(encryptedData));
+        System.out.println("Decrypted Message: " + decryptedData);
+    }
+
+    private static PGPKeyPair generatePgpKeyPair() throws Exception {
+        KeyPairGenerator keyPairGenerator = new JcaPGPKeyPairGenerator()
+                .setAlgorithm(PGPPublicKey.RSA_ENCRYPT)
+                .setProvider("BC");
+
+        return keyPairGenerator.generateKeyPair(PGPPublicKey.RSA_GENERAL, 2048);
+    }
+
+    private static byte[] encryptData(String plaintext, PGPPublicKey publicKey) throws Exception {
+        ByteArrayOutputStream encryptedOut = new ByteArrayOutputStream();
+
+        try (PGPCompressedDataGenerator comData = new PGPCompressedDataGenerator(
+                PGPCompressedData.ZIP);
+             ArmoredOutputStream armoredOut = new ArmoredOutputStream(encryptedOut)) {
+
+            PGPUtil.writeFileToLiteralData(
+                    comData.open(armoredOut), PGPLiteralData.BINARY,
+                    new ByteArrayInputStream(plaintext.getBytes()), new byte[4096]);
+
+            armoredOut.close();
+
+            JcePGPDataEncryptorBuilder encryptorBuilder = new JcePGPDataEncryptorBuilder(
+                    SymmetricKeyAlgorithmTags.AES_256).setWithIntegrityPacket(true)
+                    .setSecureRandom(new java.security.SecureRandom());
+
+            PGPEncryptedDataGenerator encGen = new PGPEncryptedDataGenerator(encryptorBuilder);
+
+            encGen.addMethod(new JcePublicKeyKeyEncryptionMethodGenerator(publicKey)
+                    .setSecureRandom(new java.security.SecureRandom())
+                    .setProvider("BC"));
+
+            PGPLiteralDataGenerator literalDataGenerator = new PGPLiteralDataGenerator();
+            PGPOnePassSignature ops = new PGPOnePassSignature(PGPOnePassSignature.SHA256, publicKey);
+            ops.init(new JcaPGPContentSignerBuilder(publicKey.getAlgorithm(), PGPSignature.DEFAULT_HASH_ALGORITHM), publicKey);
+
+            try (OutputStream encOut = encGen.open(encryptedOut, new byte[4096]);
+                 OutputStream literalOut = literalDataGenerator.open(encOut,
+                         PGPLiteralData.BINARY, "_CONSOLE", plaintext.length(), new java.util.Date())) {
+
+                for (int ch = literalOut.write(plaintext.getBytes()); ch >= 0; ch = literalOut.write(plaintext.getBytes())) {
+                    ops.update((byte) ch);
+                }
+
+                ops.generate().encode(literalOut);
+            }
+
+            armoredOut.close();
+        }
+
+        return encryptedOut.toByteArray();
+    }
+
+    private static String decryptData(byte[] encryptedData, PGPPrivateKey privateKey) throws Exception {
+        ByteArrayInputStream encryptedIn = new ByteArrayInputStream(encryptedData);
+        PGPObjectFactory pgpFactory = new PGPObjectFactory(encryptedIn);
+        PGPEncryptedDataList encList = (PGPEncryptedDataList) pgpFactory.nextObject();
+        PGPPublicKeyEncryptedData encData = (PGPPublicKeyEncryptedData) encList.get(0);
+
+        PBESecretKeyDecryptor secretKeyDecryptor = new JcePBESecretKeyDecryptorBuilder()
+                .setProvider("BC")
+                .build(privateKey.extractPrivateKey(null));
+
+        InputStream clear = encData.getDataStream(new JcePublicKeyDataEncryptorBuilder()
+                .setProvider("BC")
+                .setSecureRandom(new java.security.SecureRandom())
+                .build(secretKeyDecryptor));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            PGPObjectFactory pgpFact = new PGPObjectFactory(clear);
+            PGPLiteralData ld = (PGPLiteralData) pgpFact.nextObject();
+            InputStream unc = ld.getInputStream();
+            int ch;
+            while ((ch = unc.read()) >= 0) {
+                out.write(ch);
+            }
+        } finally {
+            clear.close();
+            out.close();
+        }
+
+        return new String(out.toByteArray());
+    }
+}
