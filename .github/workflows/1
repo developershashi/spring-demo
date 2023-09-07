@@ -1,0 +1,82 @@
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Security;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openpgp.PGPEncryptedData;
+import org.bouncycastle.openpgp.PGPKeyPair;
+import org.bouncycastle.openpgp.PGPPublicKey;
+import org.bouncycastle.openpgp.operator.bc.BcPGPKeyPair;
+import org.bouncycastle.openpgp.operator.bc.BcPGPKeyPairGenerator;
+import org.bouncycastle.openpgp.operator.bc.BcPGPKeyPairGenerator.EncryptionAlgorithm;
+import org.bouncycastle.openpgp.operator.bc.BcPGPKeyPairGenerator.KeyPairType;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPair;
+
+public class PgpEncryptionExample {
+    public static void main(String[] args) throws Exception {
+        // Add the Bouncy Castle security provider
+        Security.addProvider(new BouncyCastleProvider());
+
+        // Generate a key pair for ElGamal encryption
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("ElGamal", "BC");
+        keyPairGenerator.initialize(2048);
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+        // Create a PGP key pair from the ElGamal key pair
+        PGPKeyPair pgpKeyPair = new JcaPGPKeyPair(PGPPublicKey.ELGAMAL_ENCRYPT, keyPair, new java.util.Date());
+
+        // Perform encryption and decryption
+        byte[] msg = "Hello, world!".getBytes();
+        byte[] encData = encrypt(pgpKeyPair.getPublicKey(), msg);
+        byte[] decData = decrypt(pgpKeyPair.getPrivateKey(), encData);
+
+        System.out.println("Original Message: " + new String(msg));
+        System.out.println("Decrypted Message: " + new String(decData));
+    }
+
+    // Encrypt data using the recipient's public key
+    public static byte[] encrypt(PGPPublicKey publicKey, byte[] data) throws Exception {
+        // Create an output stream for the encrypted data
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        // Create a PGP key pair generator
+        BcPGPKeyPairGenerator keyPairGenerator = new BcPGPKeyPairGenerator();
+        keyPairGenerator.init(new BcPGPKeyPairGenerator.KeyPairParameters(
+            KeyPairType.Elgamal,
+            EncryptionAlgorithm.CONVENTIONAL,
+            new SecureRandom(),
+            PGPEncryptedData.AES_256
+        ));
+
+        // Encrypt the data
+        PGPEncryptedDataGenerator encryptedDataGenerator = new PGPEncryptedDataGenerator(keyPairGenerator);
+        encryptedDataGenerator.addMethod(publicKey);
+        OutputStream encryptedOut = encryptedDataGenerator.open(out, data.length);
+        encryptedOut.write(data);
+        encryptedOut.close();
+
+        return out.toByteArray();
+    }
+
+    // Decrypt data using the private key
+    public static byte[] decrypt(PGPPrivateKey privateKey, byte[] encryptedData) throws Exception {
+        // Create an input stream for the encrypted data
+        ByteArrayInputStream in = new ByteArrayInputStream(encryptedData);
+
+        // Create a PGP data decryptor
+        PGPObjectFactory factory = new PGPObjectFactory(PGPUtil.getDecoderStream(in));
+        PGPEncryptedDataList encryptedDataList = (PGPEncryptedDataList) factory.nextObject();
+
+        // Find the matching decryption key
+        PGPPublicKeyEncryptedData encryptedData = (PGPPublicKeyEncryptedData) encryptedDataList.get(0);
+        PGPPrivateKey decryptionKey = privateKey;
+
+        // Decrypt the data
+        InputStream decryptedIn = encryptedData.getDataStream(decryptionKey, "BC");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Streams.pipeAll(decryptedIn, out);
+        decryptedIn.close();
+        out.close();
+
+        return out.toByteArray();
+    }
+}
