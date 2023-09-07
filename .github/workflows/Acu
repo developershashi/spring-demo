@@ -1,0 +1,26 @@
+question list
+1. json file sample
+2. request almost same , response sample - kiran
+3. if failer or validation issue in coming file then ?
+4. shall we store rcu's data on dashboard  -  (if not send and forget )
+5. if transaction fail shall we trigger the email -  (if not send and forget )
+6. what is the location of file (we are creating folder structure now so we received the same )
+7. gps cliend id , topic will be same or differant? kiran
+8. file comes in rps incoming folder then move to procing folder
+or processed 
+9. transaction response status will be same as paytm flow in acu? - (if not send and forget )
+10. email id will be same for failer case -  - (if not send and forget )
+11.retaion policy will also be same 7 days -- (if not send and forget )
+12. what is file size?
+13. how many files will come in a day?
+14. what is the timing?
+15. any validation required from adapter side ?
+16. if need in database , need to check json file contant , what is transaction id and all?
+17. some negtive test case: if we in case same transaction coming in two time ? what is the behaivor of gps system ?- kiran 
+18. what is the go anywhere folder stature? -shashi
+
+
+19. if client id will same , in that case our ems producer and subscriber code will be same, 
+we differentiate in starting stage , 
+
+20 we can use factory patteran or different package .
