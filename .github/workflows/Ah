@@ -1,0 +1,57 @@
+import org.bouncycastle.openpgp.*;
+
+import java.io.*;
+import java.security.Security;
+import java.util.Iterator;
+
+public class DecryptWithKeyID {
+    public static void main(String[] args) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Replace with the key ID you obtained from PGPPublicKeyEncryptedData
+        long keyID = 0x1234567890ABCDEFL;
+
+        // Load or obtain your PGP private keyring
+        PGPSecretKeyRingCollection secretKeyRingCollection = loadPrivateKeyRing();
+
+        // Find the matching private key using the key ID
+        PGPSecretKey matchingSecretKey = findMatchingPrivateKey(secretKeyRingCollection, keyID);
+
+        if (matchingSecretKey != null) {
+            // Decrypt using the matching private key
+            PGPPrivateKey privateKey = matchingSecretKey.extractPrivateKey(
+                    new org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder()
+                            .setProvider("BC")
+                            .build("your-passphrase".toCharArray())); // Replace with the passphrase
+
+            // Now you can use the privateKey to decrypt PGPPublicKeyEncryptedData
+            // ...
+
+            System.out.println("Private Key: " + privateKey);
+        } else {
+            System.out.println("Matching private key not found.");
+        }
+    }
+
+    private static PGPSecretKeyRingCollection loadPrivateKeyRing() throws IOException, PGPException {
+        // Load or obtain your PGP private keyring
+        FileInputStream privateKeyRingInputStream = new FileInputStream("path/to/private-keyring.asc");
+        return new PGPSecretKeyRingCollection(PGPUtil.getDecoderStream(privateKeyRingInputStream));
+    }
+
+    private static PGPSecretKey findMatchingPrivateKey(PGPSecretKeyRingCollection secretKeyRingCollection, long keyID) {
+        // Iterate through the key rings and find the matching private key
+        Iterator<PGPSecretKeyRing> keyRingIterator = secretKeyRingCollection.getKeyRings();
+        while (keyRingIterator.hasNext()) {
+            PGPSecretKeyRing keyRing = keyRingIterator.next();
+            Iterator<PGPSecretKey> keyIterator = keyRing.getSecretKeys();
+            while (keyIterator.hasNext()) {
+                PGPSecretKey secretKey = keyIterator.next();
+                if (secretKey.getKeyID() == keyID) {
+                    return secretKey; // Found a matching private key
+                }
+            }
+        }
+        return null; // Matching private key not found
+    }
+}
