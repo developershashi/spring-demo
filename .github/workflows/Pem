@@ -1,0 +1,39 @@
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.PEMWriter;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+
+import java.io.StringReader;
+import java.io.StringWriter;
+
+public class StringToPemPrivateKey {
+    public static void main(String[] args) throws Exception {
+        // Your private key as a string
+        String privateKeyStr = "-----BEGIN PRIVATE KEY-----\n" +
+                "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDOHl0l3qTLMFLk\n" +
+                // ... (insert the rest of your private key here)
+                "-----END PRIVATE KEY-----";
+
+        // Create a PEM parser to read the private key string
+        PEMParser pemParser = new PEMParser(new StringReader(privateKeyStr));
+
+        // Read the private key object from the PEM parser
+        Object keyObject = pemParser.readObject();
+
+        // Create a PEM writer
+        StringWriter pemStringWriter = new StringWriter();
+        JcaPEMWriter pemWriter = new JcaPEMWriter(pemStringWriter);
+
+        // Write the private key object to the PEM format
+        pemWriter.writeObject(keyObject);
+
+        // Close the writers
+        pemWriter.close();
+        pemStringWriter.close();
+
+        // Get the private key in PEM format as a string
+        String pemPrivateKey = pemStringWriter.toString();
+
+        // Print or use the PEM private key as needed
+        System.out.println(pemPrivateKey);
+    }
+}
