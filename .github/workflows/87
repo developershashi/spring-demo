@@ -1,0 +1,96 @@
+import org.bouncycastle.bcpg.ArmoredOutputStream;
+import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.openpgp.operator.jcajce.*;
+import org.bouncycastle.util.io.Streams;
+
+import java.io.*;
+import java.security.NoSuchProviderException;
+import java.security.Security;
+import java.util.Iterator;
+
+public class PgpEncryptionDecryption {
+
+    public static void main(String[] args) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Paths to your own PGP public and private keyrings
+        String publicKeyringPath = "path/to/your-public-keyring.asc";
+        String privateKeyringPath = "path/to/your-private-keyring.asc";
+
+        // Message to encrypt
+        String plaintext = "Hello, PGP!";
+
+        // Encrypt the message
+        byte[] encryptedData = encrypt(plaintext, publicKeyringPath);
+
+        // Decrypt the message
+        String decryptedData = decrypt(encryptedData, privateKeyringPath, "your-passphrase");
+
+        System.out.println("Original Message: " + plaintext);
+        System.out.println("Encrypted Message: " + new String(encryptedData));
+        System.out.println("Decrypted Message: " + decryptedData);
+    }
+
+    public static byte[] encrypt(String plaintext, String publicKeyringPath) throws IOException, PGPException, NoSuchProviderException {
+        ByteArrayOutputStream encryptedOut = new ByteArrayOutputStream();
+        PGPPublicKeyRingCollection pgpPublicKeyRingCollection = new PGPPublicKeyRingCollection(new FileInputStream(publicKeyringPath));
+        
+        // Assuming you want to use your primary public key
+        PGPPublicKey publicKey = pgpPublicKeyRingCollection.getPublicKey();
+
+        JcePGPDataEncryptorBuilder encryptorBuilder = new JcePGPDataEncryptorBuilder(SymmetricKeyAlgorithmTags.AES_256)
+                .setWithIntegrityPacket(true)
+                .setSecureRandom(new SecureRandom())
+                .setProvider("BC");
+
+        PGPEncryptedDataGenerator encryptedDataGenerator = new PGPEncryptedDataGenerator(encryptorBuilder);
+        encryptedDataGenerator.addMethod(new JcePublicKeyKeyEncryptionMethodGenerator(publicKey)
+                .setProvider("BC")
+                .setSecureRandom(new SecureRandom()));
+
+        OutputStream encryptedOutputStream = encryptedDataGenerator.open(encryptedOut, new byte[4096]);
+        PGPCompressedDataGenerator compressedDataGenerator = new PGPCompressedDataGenerator(PGPCompressedData.ZIP);
+        OutputStream compressedOutputStream = compressedDataGenerator.open(encryptedOutputStream);
+        PGPUtil.writeFileToLiteralData(compressedOutputStream, PGPLiteralData.BINARY, new ByteArrayInputStream(plaintext.getBytes()), new byte[4096]);
+        compressedDataGenerator.close();
+        encryptedDataGenerator.close();
+
+        return encryptedOut.toByteArray();
+    }
+
+    public static String decrypt(byte[] encryptedData, String privateKeyringPath, String passphrase) throws IOException, PGPException, NoSuchProviderException {
+        ByteArrayInputStream encryptedInputStream = new ByteArrayInputStream(encryptedData);
+        PGPSecretKeyRingCollection pgpSecretKeyRingCollection = new PGPSecretKeyRingCollection(new FileInputStream(privateKeyringPath));
+        
+        // Assuming you want to use your primary private key
+        PGPSecretKey privateKey = pgpSecretKeyRingCollection.getSecretKey();
+        
+        InputStream decryptedInputStream = PGPUtil.getDecoderStream(encryptedInputStream);
+        PGPObjectFactory pgpObjectFactory = new PGPObjectFactory(decryptedInputStream);
+        PGPEncryptedDataList encryptedDataList = (PGPEncryptedDataList) pgpObjectFactory.nextObject();
+        Iterator<?> it = encryptedDataList.getEncryptedDataObjects();
+
+        PGPPublicKeyEncryptedData encryptedDataPacket = (PGPPublicKeyEncryptedData) it.next();
+        
+        InputStream clear = encryptedDataPacket.getDataStream(new JcePublicKeyDataDecryptorFactoryBuilder()
+                .setProvider("BC")
+                .setSecureRandom(new SecureRandom())
+                .build(new JcePBESecretKeyDecryptorBuilder()
+                        .setProvider("BC")
+                        .build(passphrase.toCharArray())));
+
+        PGPObjectFactory plainFactory = new PGPObjectFactory(clear);
+        Object message = plainFactory.nextObject();
+
+        if (message instanceof PGPLiteralData) {
+            PGPLiteralData literalData = (PGPLiteralData) message;
+            InputStream dataStream = literalData.getInputStream();
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            Streams.pipeAll(dataStream, output);
+            return new String(output.toByteArray());
+        } else {
+            throw new PGPException("Message is not plain text.");
+        }
+    }
+}
