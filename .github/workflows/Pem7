@@ -1,0 +1,44 @@
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
+
+public class StringToPemPrivateKey {
+    public static void main(String[] args) throws Exception {
+        // Your private key as a string (PKCS#8 format)
+        String privateKeyStr = "-----BEGIN PRIVATE KEY-----\n" +
+                "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDOHl0l3qTLMFLk\n" +
+                // ... (insert the rest of your private key here)
+                "-----END PRIVATE KEY-----";
+
+        // Remove the header and footer, and any line breaks
+        String privateKeyPEM = privateKeyStr
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\n", "");
+
+        // Decode the Base64-encoded private key bytes
+        byte[] privateKeyBytes = Base64.getDecoder().decode(privateKeyPEM);
+
+        // Create a PKCS8EncodedKeySpec from the decoded bytes
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
+
+        // Get the private key from the key specification
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA"); // Change to your key algorithm if needed
+        PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
+
+        // Convert the private key to PEM format
+        StringWriter pemStringWriter = new StringWriter();
+        pemStringWriter.write("-----BEGIN PRIVATE KEY-----\n");
+        pemStringWriter.write(Base64.getEncoder().encodeToString(privateKey.getEncoded()));
+        pemStringWriter.write("\n-----END PRIVATE KEY-----");
+
+        // Get the PEM private key as a string
+        String pemPrivateKey = pemStringWriter.toString();
+
+        // Print or use the PEM private key as needed
+        System.out.println(pemPrivateKey);
+    }
+}
