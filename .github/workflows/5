@@ -1,0 +1,98 @@
+import java.io.StringReader;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMKeyPairParser;
+import org.bouncycastle.openssl.PEMReader;
+import org.bouncycastle.util.io.pem.PemObject;
+
+public class PemUtils {
+
+    public static PublicKey convertPemToPublicKey(String publicKeyPem) throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
+
+        PemObject pemObject = readPemObject(publicKeyPem);
+        byte[] publicKeyBytes = pemObject.getContent();
+
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA", "BC");
+        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicKeyBytes);
+
+        return keyFactory.generatePublic(publicKeySpec);
+    }
+
+    public static PrivateKey convertPemToPrivateKey(String privateKeyPem) throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
+
+        PemObject pemObject = readPemObject(privateKeyPem);
+        byte[] privateKeyBytes = pemObject.getContent();
+
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA", "BC");
+        PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
+
+        return keyFactory.generatePrivate(privateKeySpec);
+    }
+
+    private static PemObject readPemObject(String pemString) throws IOException {
+        StringReader stringReader = new StringReader(pemString);
+        PEMParser pemParser = new PEMParser(stringReader);
+
+        try {
+            return pemParser.readPemObject();
+        } finally {
+            pemParser.close();
+            stringReader.close();
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Replace with your PEM-encoded public and private keys
+        String publicKeyPem = "-----BEGIN PUBLIC KEY-----\n" +
+                "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2xWv8ltdGj3nI6Np\n" +
+                "4r4d0XOHgALjhq9i7aOhCf7Ef0CZZ+TtXTUQkRWtUZCZvPnV/ZzV6a6Mz6F\n" +
+                "U6mYz5xU2W6BuMwd0NzIiQ3ia4dOeEHoK0mZSVn1UGyBqZHEfYjRhaLwD6h\n" +
+                "V7N1jVZr0fqLro9jnTbZ0hZzxNNQMdV9oHgOzJ+kXM6ejmUKr2QkKu5IefJ\n" +
+                "6k4IdZgFJxHcKLb6gxUXx7CqCHL6BsPlbbvjJiBYA5m+Dnvt9QhnvB53lM1\n" +
+                "LczpMLbrAtVrPqO8w36Q6s0PptR+BLNeOIRWG6Rc8LQkYpRJkP0wX3v7jsd\n" +
+                "tJ8ESwIDAQAB\n" +
+                "-----END PUBLIC KEY-----";
+
+        String privateKeyPem = "-----BEGIN PRIVATE KEY-----\n" +
+                "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDbFa/yW10aP\n" +
+                "ecjo2nivh3Rc4eAAs4avYu2joQn+xH9AmWfk7VdNRCRFa1RkJm8+dX9nNXpr\n" +
+                "ozPoVTapmM+cVNlugbjMHeDcyJDeJrh054QegrSZlJWfVQbIGpkcR9iNGFov\n" +
+                "APqFXs3WNVmvR+ouuj2OdNtnSFnPE01AxdX2geA7Mn6Rczp6OZQqvZCQq7kh\n" +
+                "58nqTgh1mAUnEdwotvqDFRfHsKoIcvoGw+W248mIFgDmb4Oe+31CGe8HneU\n" +
+                "zUtzOkwtswLVWs+o7zDfpDqzQ+m1H4Es144hFYbpFzwtCRilEmQ/TBfe/uOx\n" +
+                "20nwRLAgMBAAECggEAIfGt/BH5J3oiDUC0Y7jMYrEhvnZ5n4a8ZKjjs6unm4\n" +
+                "lVv3Dq9MvQ+n06R3Tui63AD/kdSMQ6tiEg3MLeQ5fL3KnNdsJf9kklQBLrc\n" +
+                "b8gX/mf4y1Lc/Gm+dPyenxWk7fCjowweccPbU/euENwGvNZbqP6oRR30rA5\n" +
+                "aP0AFG/Xhgn0e0m8ouPwSlhxgB4Vy1gwwg0xg6eYiHYxF0l2MMrtoz9LZmF\n" +
+                "WxasRceh6zNyrj29//8J/yYwV5JXwQ9xjoivbrnhyFLqOzCuWf9ERJ/L8AN\n" +
+                "z/X0mmz71liPK9U88+o6sEvzX0S3/GH5Qf8QHj0c4VRpv0jQh9cNi1Ox4c6\n" +
+                "1/Fudfa3iKkMawRn4gDmT0uPVm/bvUw5X6mjGwY2pQKBgQD3Q8LZWqOslGk\n" +
+                "M7G65hOLU0dbDAlL2Dw/RGGQyaT9o4CzP8m7W66nF03jN1kM3Xp5OTz8nTO\n" +
+                "ebONp1fOg5V2Ll7tRZt4NE2+1vLWmz2kGRS6COql47XdEnS8cX0POgNtwRK\n" +
+                "Bm53t71NhZJqUTm8aj4cZBoWo3/jw1TwUop8F7XhOhN3FDhGwI3C3RLTQKB\n" +
+                "gQD5NlLjRZ/Y4aOnciXpCDgNARa4yQIQxHdBG64vSABcYzPHQf/zLhxPCpL\n" +
+                "8eogWktR5X8wJpURPqH5Bw71GMMUZ1iVDmU6K7nNpC8XtHUVgGvl9fH5Iwv\n" +
+                "g6eQLAqAysSyVbRvXrJlX4+vmi1ETeWBoJ1z8I+Fdpo3vzUHPN1D8+udMw7\n" +
+                "x5xTYEBtZBONg4TD1iUqk0GMyQKBgQDj9cMd3ZUeN9t3ydduUf7Q0eFY6Ho\n" +
+                "A6XJLmGzr1j1fRYV2hLxT3rp+phIzctfXM1iynTggx8g5uoI8K4E7Fz1XHn\n" +
+                "WOMnXOeGGoBG9aw6zBnInoizxgVRG3j25N4Qt8fQeSh5WlZXxvhLGV/lqfR\n" +
+                "oGgzA9p4yNhBW1CvBmffotR1uhpOlUYFBXKVrDxYrQKBgFSEuoQgqH8E2Jw\n" +
+                "Ded2C1Jm/W1UGVhKCEt8nWeEMEsEXwl1WvPLxwGmSSmdhGTdcI8cN+pwn8\n" +
+                "L4K3K5D5p4k9fN5tUTrExrB3bSoHJSFmpAwuAQOHyHWyRWkselTy9BFrXoT\n" +
+                "PwN7l3VmYjxIcRYq4Ir5Q9AG3yokIKZCEzK/uMB26RfAoSJryKzWmvob\n" +
+                "-----END PRIVATE KEY-----";
+
+        PublicKey publicKey = convertPemToPublicKey(publicKeyPem);
+        PrivateKey privateKey = convertPemToPrivateKey(privateKeyPem);
+
+        System.out.println("Public Key: " + publicKey);
+        System.out.println("Private Key: " + privateKey);
+    }
+}
