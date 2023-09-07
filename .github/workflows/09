@@ -1,0 +1,41 @@
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.openpgp.PGPPublicKey;
+import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
+import org.bouncycastle.openpgp.PGPUtil;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+public class PgpPublicKeyConversion {
+
+    public static void main(String[] args) throws Exception {
+        String publicKeyString = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n" +
+                "Version: BCPG v1.64\n" +
+                "Comment: Public Key\n" +
+                "\n" +
+                "mQINBGVthnoBEADiU7vaArfBw6BX2fM+R1VxhFZNcMlvn5Z4I7NS58a6j2jQ6sCV\n" +
+                // ... (the rest of the ASCII-armored public key) ...
+                "QSO4ZrntLVCDW5Z4nH1eH3M/5KYRiVlEIm//XnGiMzQME8f7aEXrNofo4ZUVV3ic\n" +
+                "qgJG4p5L37wh7Sjop7BztGE79eq4PRK7AVR0lal7lZa6HTVwNhqczpKKGuyNZVzC\n" +
+                "XsA6eToVn1BYAT8KgEzffCd2ni1fNGZRgQDnLOIlyH/jF/cA49Ioh4Spg3ZjhC4S\n" +
+                "1yscTpH1m4Hj6IGQ8jK/VRJCyw4apdzjBOBt1R0igcGf+TeTm3jHAA==\n" +
+                "=TmUd\n" +
+                "-----END PGP PUBLIC KEY BLOCK-----";
+
+        PGPPublicKey publicKey = convertPublicKey(publicKeyString);
+        System.out.println("PGP Public Key: " + publicKey);
+    }
+
+    public static PGPPublicKey convertPublicKey(String publicKeyString) throws IOException {
+        InputStream inputStream = new ByteArrayInputStream(publicKeyString.getBytes());
+        InputStream armoredInputStream = PGPUtil.getDecoderStream(inputStream);
+
+        PGPPublicKeyRingCollection publicKeyRingCollection = new PGPPublicKeyRingCollection(armoredInputStream);
+
+        // Assuming you want to use the first (primary) public key
+        PGPPublicKeyRing publicKeyRing = publicKeyRingCollection.getKeyRings().next();
+        return publicKeyRing.getPublicKey();
+    }
+}
