@@ -1,0 +1,100 @@
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemReader;
+
+import java.io.*;
+import java.security.Security;
+
+public class PGPPrivateKeyConversion {
+    public static PGPPrivateKey convertStringToPGPPrivateKey(String privateKeyString, char[] passphrase) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Convert the private key string to an InputStream
+        ByteArrayInputStream privateKeyInputStream = new ByteArrayInputStream(privateKeyString.getBytes());
+
+        // Create a PGP object factory from the InputStream
+        PGPObjectFactory pgpObjectFactory = new PGPObjectFactory(privateKeyInputStream);
+
+        // Read the first object, which should be a PGP marker packet
+        Object firstObject = pgpObjectFactory.nextObject();
+
+        // Check if it's a marker packet
+        if (firstObject instanceof PGPEncryptedDataList) {
+            // This is an encrypted private key, so let's decrypt it
+            PGPEncryptedDataList encryptedDataList = (PGPEncryptedDataList) firstObject;
+
+            PGPPrivateKey privateKey = null;
+
+            // Iterate through the encrypted data list and find the private key
+            for (Object encDataObj : encryptedDataList) {
+                if (encDataObj instanceof PGPPublicKeyEncryptedData) {
+                    PGPPublicKeyEncryptedData publicKeyEncryptedData = (PGPPublicKeyEncryptedData) encDataObj;
+                    privateKey = decryptPrivateKey(publicKeyEncryptedData, passphrase);
+                    if (privateKey != null) {
+                        break; // Stop after finding the private key
+                    }
+                }
+            }
+
+            if (privateKey == null) {
+                throw new IllegalArgumentException("Unable to decrypt private key.");
+            }
+
+            return privateKey;
+        } else if (firstObject instanceof PemObject) {
+            // This is a PEM-encoded private key
+            PemObject pemObject = (PemObject) firstObject;
+            byte[] pemBytes = pemObject.getContent();
+
+            // Convert the PEM bytes to a PGP private key
+            ByteArrayInputStream pemInputStream = new ByteArrayInputStream(pemBytes);
+            ArmoredInputStream armoredInputStream = new ArmoredInputStream(pemInputStream);
+
+            PGPSecretKeyRingCollection secretKeyRingCollection = new PGPSecretKeyRingCollection(armoredInputStream);
+
+            // Assuming you want the first secret key in the collection
+            PGPSecretKey secretKey = secretKeyRingCollection.getKeyRings().next().getSecretKey();
+
+            // Extract the private key from the secret key
+            PGPPrivateKey privateKey = secretKey.extractPrivateKey(
+                    new org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder()
+                            .setProvider("BC")
+                            .build(passphrase));
+            return privateKey;
+        } else {
+            throw new IllegalArgumentException("Invalid private key format.");
+        }
+    }
+
+    private static PGPPrivateKey decryptPrivateKey(PGPPublicKeyEncryptedData publicKeyEncryptedData, char[] passphrase) throws PGPException, IOException {
+        PGPPrivateKey privateKey = null;
+        try {
+            privateKey = publicKeyEncryptedData.getPrivateKey(
+                    new org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder()
+                            .setProvider("BC")
+                            .build(passphrase));
+        } catch (PGPException e) {
+            // Decryption failed; return null
+        }
+        return privateKey;
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Replace this with your actual private key string
+        String privateKeyString = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" +
+                                  "Version: PGP Version\n" +
+                                  "\n" +
+                                  "lQOYBGCdVLsBCACsjZaX..." +
+                                  // Rest of the private key
+                                  "\n" +
+                                  "=wVw0\n" +
+                                  "-----END PGP PRIVATE KEY BLOCK-----";
+
+        // Replace this with your actual passphrase
+        char[] passphrase = "your-passphrase".toCharArray();
+
+        PGPPrivateKey privateKey = convertStringToPGPPrivateKey(privateKeyString, passphrase);
+        System.out.println("PGP Private Key: " + privateKey);
+    }
+}
