@@ -1,0 +1,73 @@
+import org.bouncycastle.bcpg.HashAlgorithmTags;
+import org.bouncycastle.bcpg.KeyFlags;
+import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.openpgp.operator.*;
+import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPDigestCalculatorProviderBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPair;
+import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyEncryptorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePGPDataEncryptorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePGPKeyPair;
+import org.bouncycastle.openpgp.operator.jcajce.JcePGPSignatureGeneratorBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcePGPContentVerifierBuilderProvider;
+import org.bouncycastle.openpgp.operator.jcajce.JcePGPKeyConverter;
+import org.bouncycastle.util.io.Streams;
+import java.io.*;
+import java.security.*;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Date;
+
+public class PgpKeyPairGeneration {
+
+    public static void main(String[] args) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Generate an RSA PGP key pair
+        PGPKeyPair keyPair = generateRsaPgpKeyPair("Alice RSA", "alice@example.com", "passphrase");
+
+        // Export the key pair to files
+        exportKeyPair(keyPair, "alice_rsa_public.asc", "alice_rsa_private.asc");
+    }
+
+    private static PGPKeyPair generateRsaPgpKeyPair(String userId, String email, String passphrase) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048); // Adjust key size as needed
+        KeyPair keyPair = kpg.generateKeyPair();
+
+        PGPKeyPair pgpKeyPair = new JcePGPKeyPair(
+                PGPPublicKey.RSA_GENERAL, keyPair, new Date());
+        PGPKeyRingGenerator keyRingGen = generateKeyRingGenerator(userId, email, pgpKeyPair, passphrase);
+
+        return pgpKeyPair;
+    }
+
+    private static PGPKeyRingGenerator generateKeyRingGenerator(String userId, String email,
+                                                               PGPKeyPair keyPair, String passphrase) throws Exception {
+        PGPDigestCalculator sha1Calc = new JcaPGPDigestCalculatorProviderBuilder().build().get(HashAlgorithmTags.SHA1);
+        PGPKeyPair rsaKeyPair = keyPair;
+        int keyFlags = KeyFlags.SIGN_DATA | KeyFlags.ENCRYPT_COMMS | KeyFlags.ENCRYPT_STORAGE;
+
+        PGPKeyRingGenerator keyRingGen = new PGPKeyRingGenerator(
+                keyFlags, rsaKeyPair, userId, sha1Calc, null, null,
+                new JcaPGPContentSignerBuilder(
+                        rsaKeyPair.getPublicKey().getAlgorithm(), HashAlgorithmTags.SHA1),
+                new JcePBESecretKeyEncryptorBuilder(PGPEncryptedData.AES_256, sha1Calc)
+                        .setProvider("BC").build(passphrase.toCharArray()));
+
+        return keyRingGen;
+    }
+
+    private static void exportKeyPair(PGPKeyPair keyPair, String publicKeyFilename, String privateKeyFilename)
+            throws IOException, PGPException {
+        OutputStream publicKeyOut = new BufferedOutputStream(new FileOutputStream(publicKeyFilename));
+        OutputStream privateKeyOut = new BufferedOutputStream(new FileOutputStream(privateKeyFilename));
+        keyPair.encode(publicKeyOut);
+        keyPair.encode(privateKeyOut);
+        publicKeyOut.close();
+        privateKeyOut.close();
+    }
+}
