@@ -1,0 +1,88 @@
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.util.io.Streams;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemReader;
+
+import java.io.*;
+import java.security.Security;
+
+public class PGPDecryptionWithoutPassphraseExample {
+    public static byte[] decryptData(byte[] encryptedData, PGPPrivateKey privateKey) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Create a PGP object factory from the encrypted data
+        ByteArrayInputStream encryptedDataInputStream = new ByteArrayInputStream(encryptedData);
+        PGPObjectFactory pgpObjectFactory = new PGPObjectFactory(encryptedDataInputStream);
+
+        // Read the first object, which should be a PGP marker packet
+        Object firstObject = pgpObjectFactory.nextObject();
+
+        if (firstObject instanceof PGPEncryptedDataList) {
+            PGPEncryptedDataList encryptedDataList = (PGPEncryptedDataList) firstObject;
+
+            // Find the encrypted data packet that matches the provided private key
+            PGPPublicKeyEncryptedData publicKeyEncryptedData = findMatchingEncryptedData(encryptedDataList, privateKey.getKeyID());
+
+            if (publicKeyEncryptedData != null) {
+                // Decrypt the data using the private key
+                InputStream decryptedStream = publicKeyEncryptedData.getDataStream(
+                        new JcePublicKeyDataDecryptorFactoryBuilder()
+                                .setProvider("BC")
+                                .build(privateKey));
+
+                ByteArrayOutputStream decryptedOutput = new ByteArrayOutputStream();
+                Streams.pipeAll(decryptedStream, decryptedOutput);
+
+                return decryptedOutput.toByteArray();
+            } else {
+                throw new IllegalArgumentException("Matching encrypted data not found.");
+            }
+        } else {
+            throw new IllegalArgumentException("Invalid encrypted data format.");
+        }
+    }
+
+    private static PGPPublicKeyEncryptedData findMatchingEncryptedData(PGPEncryptedDataList encryptedDataList, long keyID) {
+        for (PGPEncryptedData encryptedData : encryptedDataList) {
+            if (encryptedData instanceof PGPPublicKeyEncryptedData) {
+                PGPPublicKeyEncryptedData publicKeyEncryptedData = (PGPPublicKeyEncryptedData) encryptedData;
+                if (publicKeyEncryptedData.getKeyID() == keyID) {
+                    return publicKeyEncryptedData; // Found matching encrypted data
+                }
+            }
+        }
+        return null; // Matching encrypted data not found
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Replace with the actual private key string
+        String privateKeyString = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" +
+                                  "Version: PGP Version\n" +
+                                  "\n" +
+                                  "lQOYBGCdVLsBCACsjZaX..." +
+                                  // Rest of the private key
+                                  "\n" +
+                                  "=wVw0\n" +
+                                  "-----END PGP PRIVATE KEY BLOCK-----";
+
+        // Replace with the actual encrypted data byte array
+        byte[] encryptedData = loadEncryptedData(); // Load or obtain the encrypted data
+
+        // Convert the private key string to a PGP private key
+        PGPPrivateKey privateKey = convertStringToPGPPrivateKey(privateKeyString);
+
+        // Decrypt the encrypted data
+        byte[] decryptedData = decryptData(encryptedData, privateKey);
+
+        // Print or use the decrypted data
+        System.out.println("Decrypted Data: " + new String(decryptedData, "UTF-8"));
+    }
+
+    // Replace this method with your code to load or obtain the encrypted data
+    private static byte[] loadEncryptedData() {
+        // Load the encrypted data from a file or another source
+        // Return the byte array containing the encrypted data
+        return null; // Replace with your code
+    }
+}
