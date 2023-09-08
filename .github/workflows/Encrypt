@@ -1,0 +1,53 @@
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.util.io.Streams;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemWriter;
+
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.security.Security;
+import java.security.SecureRandom;
+
+public class PGPEncryptionExample {
+    public static byte[] encryptData(byte[] data, PGPPublicKey publicKey) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        ByteArrayOutputStream encryptedOutput = new ByteArrayOutputStream();
+
+        // Create an output stream and initialize the encryption process
+        OutputStream encryptedDataStream = new ArmoredOutputStream(encryptedOutput);
+        PGPEncryptedDataGenerator encryptedDataGenerator = new PGPEncryptedDataGenerator(
+                new JcePGPDataEncryptorBuilder(PGPEncryptedData.CAST5).setSecureRandom(new SecureRandom()).setProvider("BC"));
+
+        encryptedDataGenerator.addMethod(new JcePublicKeyKeyEncryptionMethodGenerator(publicKey).setProvider("BC"));
+
+        OutputStream encryptedOutputStream = encryptedDataGenerator.open(encryptedDataStream, new byte[data.length]);
+
+        // Write the data to be encrypted
+        encryptedOutputStream.write(data);
+        encryptedOutputStream.close();
+
+        return encryptedOutput.toByteArray();
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Load or obtain the recipient's public key
+        PGPPublicKey publicKey = loadPublicKey(); // Replace with your public key loading code
+
+        // Data to be encrypted
+        byte[] dataToEncrypt = "Hello, world!".getBytes();
+
+        // Encrypt the data using the recipient's public key
+        byte[] encryptedData = encryptData(dataToEncrypt, publicKey);
+
+        // Print or save the encrypted data
+        System.out.println("Encrypted Data: " + new String(encryptedData, "UTF-8"));
+    }
+
+    // Replace this method with your code to load the recipient's public key
+    private static PGPPublicKey loadPublicKey() {
+        // Load the recipient's public key from a keyring or other source
+        // Return the PGPPublicKey object representing the public key
+        return null; // Replace with your code
+    }
+}
