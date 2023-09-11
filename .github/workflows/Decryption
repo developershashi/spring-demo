@@ -1,0 +1,87 @@
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.util.io.Streams;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.security.Security;
+
+public class DecryptPGPDataWithPrivateKeyExample {
+    public static byte[] decryptData(byte[] encryptedData, PGPPrivateKey privateKey, char[] passphrase) throws IOException, PGPException {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Create an input stream for the encrypted data
+        ByteArrayInputStream encryptedDataStream = new ByteArrayInputStream(encryptedData);
+        ArmoredInputStream armoredInputStream = new ArmoredInputStream(encryptedDataStream);
+
+        // Create a PGP object factory for reading the data
+        PGPObjectFactory pgpObjectFactory = new PGPObjectFactory(armoredInputStream, new JcaKeyFingerprintCalculator());
+
+        // Assume that the data contains encrypted session key and encrypted data
+        PGPEncryptedDataList encryptedDataList = (PGPEncryptedDataList) pgpObjectFactory.nextObject();
+
+        // Find the encrypted data that matches the private key
+        PGPPublicKeyEncryptedData encryptedData = null;
+        for (PGPEncryptedData data : encryptedDataList) {
+            if (data instanceof PGPPublicKeyEncryptedData) {
+                encryptedData = (PGPPublicKeyEncryptedData) data;
+                break;
+            }
+        }
+
+        if (encryptedData == null) {
+            throw new PGPException("No encrypted data for the private key found.");
+        }
+
+        // Use the private key and passphrase to decrypt the session key
+        PGPPrivateKey decryptionKey = privateKey.extractPrivateKey(new JcePBESecretKeyDecryptorBuilder().setProvider("BC").build(passphrase));
+        InputStream decryptedDataStream = encryptedData.getDataStream(new JcePublicKeyDataDecryptorFactoryBuilder().setProvider("BC").build(decryptionKey));
+
+        // Read the decrypted data
+        ByteArrayOutputStream decryptedOutput = new ByteArrayOutputStream();
+        Streams.pipeAll(decryptedDataStream, decryptedOutput);
+
+        return decryptedOutput.toByteArray();
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Replace with the actual PGP private key string
+        String privateKeyString = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" +
+                                  "Version: PGP Version\n" +
+                                  "\n" +
+                                  "lQOYBGCdVLsBCACsjZaX..." +
+                                  // Rest of the private key
+                                  "\n" +
+                                  "=wVw0\n" +
+                                  "-----END PGP PRIVATE KEY BLOCK-----";
+
+        // Replace with the passphrase for the private key
+        char[] passphrase = "your-passphrase".toCharArray();
+
+        // Replace with the actual encrypted data
+        byte[] encryptedData = loadEncryptedData(); // Load or obtain the encrypted data
+
+        // Convert the PGP private key string to a PGPPrivateKey
+        PGPPrivateKey privateKey = convertStringToPGPPrivateKey(privateKeyString);
+
+        // Decrypt the encrypted data using the private key and passphrase
+        byte[] decryptedData = decryptData(encryptedData, privateKey, passphrase);
+
+        // Print or use the decrypted data as needed
+        System.out.println("Decrypted Data: " + new String(decryptedData, "UTF-8"));
+    }
+
+    // Replace this method with your code to load or obtain the encrypted data
+    private static byte[] loadEncryptedData() {
+        // Load the encrypted data from a file or another source
+        // Return the byte array containing the encrypted data
+        return null; // Replace with your code
+    }
+
+    // Replace this method with your code to convert the private key string to a PGPPrivateKey
+    private static PGPPrivateKey convertStringToPGPPrivateKey(String privateKeyString) throws IOException, PGPException {
+        // Implement the conversion logic as shown in the previous response
+        return null; // Replace with your code
+    }
+}
