@@ -1,0 +1,19 @@
+// Helper method to create a mock Exchange with the desired content and fileName
+    private Exchange createExchangeWithContentAndFileName(String content, String fileName) {
+        Exchange exchange = Mockito.mock(Exchange.class);
+        AttachmentMessage attachmentMessage = Mockito.mock(AttachmentMessage.class);
+
+        Mockito.when(exchange.getIn()).thenReturn(attachmentMessage);
+
+        Mockito.when(exchange.getIn().getBody(String.class)).thenReturn(content);
+
+        Mockito.when(attachmentMessage.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(fileName);
+
+        return exchange;
+    }
+
+    // Helper method to assert that an attachment with the given fileName was added
+    private void assertAttachmentAdded(Exchange exchange, String fileName) {
+        AttachmentMessage attachmentMessage = exchange.getIn(AttachmentMessage.class);
+        Mockito.verify(attachmentMessage).addAttachmentObject(Mockito.eq(fileName), Mockito.any(DefaultAttachment.class));
+    }
