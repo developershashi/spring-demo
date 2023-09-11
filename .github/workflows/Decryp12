@@ -1,0 +1,73 @@
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.util.io.Streams;
+
+import java.io.*;
+import java.security.Security;
+import java.util.Iterator;
+
+public class PGPDecryptionWithPrivateKey {
+    public static void main(String[] args) throws Exception {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Replace with your actual PGP private key string
+        String privateKeyString = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" +
+                // Your private key data here
+                "\n" +
+                "-----END PGP PRIVATE KEY BLOCK-----";
+
+        // Replace with your passphrase if the private key is passphrase-protected
+        char[] passphrase = "your-passphrase".toCharArray();
+
+        // Load the encrypted data that you want to decrypt
+        byte[] encryptedData = loadEncryptedData();
+
+        // Create an InputStream for the private key data
+        ByteArrayInputStream privateKeyStream = new ByteArrayInputStream(privateKeyString.getBytes());
+        ArmoredInputStream armoredPrivateKeyStream = new ArmoredInputStream(privateKeyStream);
+
+        // Parse the private key data
+        PGPObjectFactory privateKeyFactory = new PGPObjectFactory(armoredPrivateKeyStream, new JcaKeyFingerprintCalculator());
+        PGPSecretKeyRing secretKeyRing = (PGPSecretKeyRing) privateKeyFactory.nextObject();
+        PGPSecretKey secretKey = secretKeyRing.getSecretKey();
+
+        // Extract the private key
+        PGPPrivateKey privateKey = secretKey.extractPrivateKey(new JcePBESecretKeyDecryptorBuilder().setProvider("BC").build(passphrase));
+
+        // Decrypt the encrypted data
+        InputStream encryptedDataStream = PGPUtil.getDecoderStream(new ByteArrayInputStream(encryptedData));
+        PGPObjectFactory encryptedDataFactory = new PGPObjectFactory(encryptedDataStream, new JcaKeyFingerprintCalculator());
+        PGPEncryptedDataList encryptedDataList = (PGPEncryptedDataList) encryptedDataFactory.nextObject();
+
+        // Find the appropriate secret key for decryption
+        Iterator<PGPPublicKeyEncryptedData> it = encryptedDataList.getEncryptedDataObjects();
+        PGPPublicKeyEncryptedData encryptedDataPacket = null;
+        while (it.hasNext()) {
+            encryptedDataPacket = it.next();
+            if (encryptedDataPacket.getKeyID() == secretKey.getKeyID()) {
+                break;
+            }
+        }
+
+        if (encryptedDataPacket == null) {
+            throw new IllegalArgumentException("No matching private key found for decryption.");
+        }
+
+        InputStream decryptedDataStream = encryptedDataPacket.getDataStream(new JcePublicKeyDataDecryptorFactoryBuilder().setProvider("BC").build(privateKey));
+
+        // Read and process the decrypted data
+        ByteArrayOutputStream decryptedOutput = new ByteArrayOutputStream();
+        Streams.pipeAll(decryptedDataStream, decryptedOutput);
+
+        // The decrypted data is now in decryptedOutput.toByteArray()
+        String decryptedText = new String(decryptedOutput.toByteArray(), "UTF-8");
+        System.out.println("Decrypted Data: " + decryptedText);
+    }
+
+    // Replace this method with your code to load or obtain the encrypted data
+    private static byte[] loadEncryptedData() {
+        // Load the encrypted data from a file or another source
+        // Return the byte array containing the encrypted data
+        return null; // Replace with your code
+    }
+}
