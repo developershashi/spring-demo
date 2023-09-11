@@ -1,0 +1,46 @@
+import org.bouncycastle.bcpg.ArmoredInputStream;
+import org.bouncycastle.openpgp.*;
+import org.bouncycastle.util.io.Streams;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.security.Security;
+
+public class StringToPGPPrivateKeyExample {
+    public static PGPPrivateKey convertStringToPGPPrivateKey(String privateKeyString) throws IOException, PGPException {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        // Remove leading/trailing whitespace and parse the armored input
+        privateKeyString = privateKeyString.trim();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(privateKeyString.getBytes("UTF-8"));
+        ArmoredInputStream armoredInputStream = new ArmoredInputStream(inputStream);
+
+        // Read the PGP private key from the armored input
+        PGPObjectFactory pgpObjectFactory = new PGPObjectFactory(armoredInputStream, new JcaKeyFingerprintCalculator());
+        PGPSecretKeyRing secretKeyRing = (PGPSecretKeyRing) pgpObjectFactory.nextObject();
+        PGPSecretKey secretKey = secretKeyRing.getSecretKey();
+
+        // Extract the PGPPrivateKey from the PGPSecretKey
+        PGPPrivateKey privateKey = secretKey.extractPrivateKey(new JcePBESecretKeyDecryptorBuilder().setProvider("BC").build("your-passphrase".toCharArray()));
+
+        return privateKey;
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Replace with the actual PGP private key string
+        String privateKeyString = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" +
+                                  "Version: PGP Version\n" +
+                                  "\n" +
+                                  "lQOYBGCdVLsBCACsjZaX..." +
+                                  // Rest of the private key
+                                  "\n" +
+                                  "=wVw0\n" +
+                                  "-----END PGP PRIVATE KEY BLOCK-----";
+
+        // Convert the PGP private key string to a PGPPrivateKey
+        PGPPrivateKey privateKey = convertStringToPGPPrivateKey(privateKeyString);
+
+        // You now have the PGPPrivateKey object for further use
+        System.out.println("PGP Private Key: " + privateKey.getKeyID());
+    }
+}
