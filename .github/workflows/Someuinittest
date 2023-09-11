@@ -1,0 +1,51 @@
+@Test
+    public void testProcessWithNonEmptyContentAndFileName() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("Sample Content", "sample.txt");
+
+        // Act
+        processor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file sample.txt.");
+        assertAttachmentAdded(exchange, "sample.txt");
+    }
+
+    @Test
+    public void testProcessWithNonEmptyContentAndEmptyFileName() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("Sample Content", "");
+
+        // Act
+        processor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file " + AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME + ".");
+        assertAttachmentAdded(exchange, AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME);
+    }
+
+    @Test
+    public void testProcessWithEmptyContent() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("", "sample.txt");
+
+        // Act
+        processor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file sample.txt.");
+        assertAttachmentAdded(exchange, "sample.txt");
+    }
+
+    @Test
+    public void testProcessWithEmptyContentAndEmptyFileName() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("", "");
+
+        // Act
+        processor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file " + AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME + ".");
+        assertAttachmentAdded(exchange, AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME);
+    }
