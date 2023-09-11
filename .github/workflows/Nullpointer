@@ -1,0 +1,118 @@
+import org.apache.camel.AttachmentMessage;
+import org.apache.camel.Exchange;
+import org.apache.camel.impl.DefaultAttachment;
+import org.apache.commons.lang.StringUtils;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mockito;
+
+import javax.activation.DataHandler;
+import org.slf4j.Logger;
+
+public class EmailProcessorTest {
+
+    private EmailProcessor emailProcessor;
+    private Logger logger;
+
+    @Before
+    public void setUp() {
+        emailProcessor = new EmailProcessor();
+        logger = Mockito.mock(Logger.class);
+        emailProcessor.setLogger(logger);
+    }
+
+    @Test
+    public void testProcessWithNonEmptyContentAndFileName() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("Sample Content", "sample.txt");
+
+        // Act
+        emailProcessor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file sample.txt.");
+        assertAttachmentAdded(exchange, "sample.txt");
+    }
+
+    @Test
+    public void testProcessWithNonEmptyContentAndEmptyFileName() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("Sample Content", "");
+
+        // Act
+        emailProcessor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file " + AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME + ".");
+        assertAttachmentAdded(exchange, AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME);
+    }
+
+    @Test
+    public void testProcessWithEmptyContent() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("", "sample.txt");
+
+        // Act
+        emailProcessor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file sample.txt.");
+        assertAttachmentAdded(exchange, "sample.txt");
+    }
+
+    @Test
+    public void testProcessWithEmptyContentAndEmptyFileName() {
+        // Arrange
+        Exchange exchange = createExchangeWithContentAndFileName("", "");
+
+        // Act
+        emailProcessor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file " + AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME + ".");
+        assertAttachmentAdded(exchange, AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME);
+    }
+
+    @Test
+    public void testProcessWithNoAttachmentMessage() {
+        // Arrange
+        Exchange exchange = createExchangeWithNoAttachmentMessage();
+
+        // Act
+        emailProcessor.process(exchange);
+
+        // Assert
+        Mockito.verify(logger).info("Email attachment processing complete for file " + AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME + ".");
+        assertAttachmentAdded(exchange, AppConstants.EMAIL_DEFAULT_ATTACHMENT_FILENAME);
+    }
+
+    // Helper method to create a mock Exchange with the desired content and fileName
+    private Exchange createExchangeWithContentAndFileName(String content, String fileName) {
+        Exchange exchange = Mockito.mock(Exchange.class);
+        AttachmentMessage attachmentMessage = Mockito.mock(AttachmentMessage.class);
+
+        Mockito.when(exchange.getIn()).thenReturn(attachmentMessage);
+
+        Mockito.when(exchange.getIn().getBody(String.class)).thenReturn(content);
+
+        Mockito.when(attachmentMessage.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(fileName);
+
+        return exchange;
+    }
+
+    // Helper method to create a mock Exchange with no AttachmentMessage
+    private Exchange createExchangeWithNoAttachmentMessage() {
+        Exchange exchange = Mockito.mock(Exchange.class);
+        Mockito.when(exchange.getIn()).thenReturn(null);
+
+        return exchange;
+    }
+
+    // Helper method to assert that an attachment with the given fileName was added
+    private void assertAttachmentAdded(Exchange exchange, String fileName) {
+        if (exchange != null) {
+            AttachmentMessage attachmentMessage = exchange.getIn(AttachmentMessage.class);
+            Mockito.verify(attachmentMessage).addAttachmentObject(Mockito.eq(fileName), Mockito.any(DefaultAttachment.class));
+        }
+    }
+}
