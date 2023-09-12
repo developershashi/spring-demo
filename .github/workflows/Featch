@@ -1,0 +1,64 @@
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.util.Assert;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.mockito.Mockito.*;
+
+public class PaymentProcessorTest {
+
+    @InjectMocks
+    private PaymentProcessor paymentProcessor;
+
+    @Mock
+    private PaymentService paymentService;
+
+    @Mock
+    private Exchange exchange;
+
+    @Before
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void testFetchPendingTransactions() {
+        // Mock the behavior of paymentService.findAllPendingPayments
+        String transactionStatus = "IN_PROCESS";
+        LocalDateTime lookupTime = LocalDateTime.now().minusHours(2); // Example lookup time
+        boolean flag = false;
+
+        List<PaymentInfo> pendingPayments = new ArrayList<>();
+        // Populate pendingPayments with test data
+
+        when(paymentService.findAllPendingPayments(transactionStatus, lookupTime, flag))
+                .thenReturn(pendingPayments);
+
+        // Mock the behavior of exchange
+        when(exchange.getIn()).thenReturn(new org.apache.camel.support.DefaultMessage());
+
+        // Call the fetchPendingTransactions method
+        paymentProcessor.fetchPendingTransactions(exchange);
+
+        // Verify that exchange.getIn().setBody() was called with pendingPayments
+        verify(exchange.getIn(), times(1)).setBody(pendingPayments);
+    }
+
+    @Test
+    public void testUpdateNotificationSentForPendingPayment() {
+        // Mock the exchange
+        when(exchange.getProperty("TRANSACTION_ID", String.class)).thenReturn("123");
+
+        // Call the updateNotificationSentForPendingPayment method
+        paymentProcessor.updateNotificationSentForPendingPayment(exchange);
+
+        // Verify that paymentService.updateEmailNotificationSentForPayment was called with the correct parameters
+        verify(paymentService, times(1)).updateEmailNotificationSentForPayment("123", true);
+    }
+}
