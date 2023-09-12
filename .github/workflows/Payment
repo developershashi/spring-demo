@@ -1,0 +1,87 @@
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.mockito.Mockito.*;
+import static org.junit.Assert.*;
+
+public class PaymentProcessorTest {
+
+    @InjectMocks
+    private PaymentProcessor paymentProcessor;
+
+    @Mock
+    private PaymentService paymentService;
+
+    @Mock
+    private Exchange exchange;
+
+    @Before
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void testFetchPendingTransactions_PositiveCase() {
+        // Create a list of pending payments for testing
+        List<PaymentInfo> pendingPayments = new ArrayList<>();
+        // Populate pendingPayments with test data
+
+        // Mock the behavior of paymentService.findAllPendingPayments
+        when(paymentService.findAllPendingPayments(anyString(), any(LocalDateTime.class), anyBoolean()))
+            .thenReturn(pendingPayments);
+
+        // Mock the behavior of exchange
+        when(exchange.getIn()).thenReturn(new org.apache.camel.support.DefaultMessage());
+
+        // Call the fetchPendingTransactions method
+        paymentProcessor.fetchPendingTransactions(exchange);
+
+        // Verify that exchange.getIn().setBody() was called with pendingPayments
+        List<PaymentInfo> result = exchange.getIn().getBody(List.class);
+        assertNotNull(result);
+        assertEquals(pendingPayments, result);
+    }
+
+    @Test
+    public void testFetchPendingTransactions_NegativeCase() {
+        // Mock the behavior of paymentService.findAllPendingPayments to return an empty list
+        when(paymentService.findAllPendingPayments(anyString(), any(LocalDateTime.class), anyBoolean()))
+            .thenReturn(new ArrayList<>());
+
+        // Mock the behavior of exchange
+        when(exchange.getIn()).thenReturn(new org.apache.camel.support.DefaultMessage());
+
+        // Call the fetchPendingTransactions method
+        paymentProcessor.fetchPendingTransactions(exchange);
+
+        // Verify that exchange.getIn().setBody() was called with an empty list
+        List<PaymentInfo> result = exchange.getIn().getBody(List.class);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void testFetchPendingTransactions_ExceptionCase() {
+        // Mock the behavior of paymentService.findAllPendingPayments to throw an exception
+        when(paymentService.findAllPendingPayments(anyString(), any(LocalDateTime.class), anyBoolean()))
+            .thenThrow(new RuntimeException("An exception occurred."));
+
+        // Mock the behavior of exchange
+        when(exchange.getIn()).thenReturn(new org.apache.camel.support.DefaultMessage());
+
+        // Call the fetchPendingTransactions method
+        paymentProcessor.fetchPendingTransactions(exchange);
+
+        // Verify that exchange.getIn().setBody() was called with an empty list
+        List<PaymentInfo> result = exchange.getIn().getBody(List.class);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+}
