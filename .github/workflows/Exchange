@@ -1,0 +1,79 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import static org.mockito.Mockito.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ExchangeServiceTest {
+
+    @InjectMocks
+    private ExchangeService exchangeService;
+
+    @Mock
+    private PaymentService paymentService;
+
+    private static final String TRANSACTION_STATUS_IN_PROCESS = "IN_PROCESS";
+    private static final int PENDING_TRANSACTIONS_LOOKUP_TIME_IN_HOURS = 24;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void fetchPendingTransactionsShouldSetBodyWithPendingPayments() {
+        // Arrange
+        LocalDateTime currentTime = LocalDateTime.now();
+        LocalDateTime lookupTime = currentTime.minusHours(PENDING_TRANSACTIONS_LOOKUP_TIME_IN_HOURS);
+        List<PaymentInfo> expectedPendingPayments = new ArrayList<>();
+        when(paymentService.findALLPendingPayments(TRANSACTION_STATUS_IN_PROCESS, lookupTime, false))
+            .thenReturn(expectedPendingPayments);
+
+        Exchange exchange = new Exchange();
+
+        // Act
+        exchangeService.fetchPendingTransactions(exchange);
+
+        // Assert
+        assertEquals(expectedPendingPayments, exchange.getIn().getBody());
+    }
+
+    @Test
+    public void fetchPendingTransactionsShouldHandleEmptyPendingPayments() {
+        // Arrange
+        LocalDateTime currentTime = LocalDateTime.now();
+        LocalDateTime lookupTime = currentTime.minusHours(PENDING_TRANSACTIONS_LOOKUP_TIME_IN_HOURS);
+        when(paymentService.findALLPendingPayments(TRANSACTION_STATUS_IN_PROCESS, lookupTime, false))
+            .thenReturn(new ArrayList<>());
+
+        Exchange exchange = new Exchange();
+
+        // Act
+        exchangeService.fetchPendingTransactions(exchange);
+
+        // Assert
+        assertEquals(0, exchange.getIn().getBody().size());
+    }
+
+    @Test
+    public void fetchPendingTransactionsShouldHandleExceptionFromPaymentService() {
+        // Arrange
+        LocalDateTime currentTime = LocalDateTime.now();
+        LocalDateTime lookupTime = currentTime.minusHours(PENDING_TRANSACTIONS_LOOKUP_TIME_IN_HOURS);
+        when(paymentService.findALLPendingPayments(TRANSACTION_STATUS_IN_PROCESS, lookupTime, false))
+            .thenThrow(new PaymentServiceException("Error fetching payments"));
+
+        Exchange exchange = new Exchange();
+
+        // Act
+        exchangeService.fetchPendingTransactions(exchange);
+
+        // Assert
+        assertNull(exchange.getIn().getBody());
+        assertNotNull(exchange.getIn().getHeader("error")); // Assuming error handling header is set
+    }
+}
