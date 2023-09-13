@@ -1,0 +1,80 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+public class PaymentServiceTest {
+
+    @InjectMocks
+    private PaymentService paymentService;
+
+    @Mock
+    private PaymentInfoRepository paymentInfoRepository;
+
+    private static final String TRANSACTION_STATUS = "IN_PROCESS";
+    private static final LocalDateTime LAST_MODIFIED_AT = LocalDateTime.now();
+    private static final boolean IS_FAILURE_NOTIFICATION_SENT = false;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void findAllPendingPaymentsShouldReturnListOfPayments() {
+        // Arrange
+        List<PaymentInfo> expectedPayments = new ArrayList<>();
+        when(paymentInfoRepository.findAlLPendingPayments(TRANSACTION_STATUS, LAST_MODIFIED_AT, IS_FAILURE_NOTIFICATION_SENT))
+            .thenReturn(expectedPayments);
+
+        // Act
+        List<PaymentInfo> actualPayments = paymentService.findAllPendingPayments(
+            TRANSACTION_STATUS, LAST_MODIFIED_AT, IS_FAILURE_NOTIFICATION_SENT);
+
+        // Assert
+        assertEquals(expectedPayments, actualPayments);
+    }
+
+    @Test
+    public void updateEmailNotificationSentForPaymentShouldUpdateNotification() {
+        // Arrange
+        String transactionId = "sampleTransactionId";
+        PaymentInfo samplePaymentInfo = new PaymentInfo();
+        samplePaymentInfo.setTransactionId(transactionId);
+
+        when(paymentInfoRepository.findFirstByTransactionIdOrderByCreatedAtDesc(transactionId))
+            .thenReturn(Optional.of(samplePaymentInfo));
+
+        // Act
+        paymentService.updateEmailNotificationSentForPayment(transactionId, true);
+
+        // Assert
+        verify(paymentInfoRepository, times(1)).save(any(PaymentInfo.class));
+        verify(paymentInfoRepository, times(1)).findFirstByTransactionIdOrderByCreatedAtDesc(transactionId);
+    }
+
+    @Test
+    public void updateEmailNotificationSentForPaymentShouldHandleNonExistentPayment() {
+        // Arrange
+        String transactionId = "nonExistentTransactionId";
+
+        when(paymentInfoRepository.findFirstByTransactionIdOrderByCreatedAtDesc(transactionId))
+            .thenReturn(Optional.empty());
+
+        // Act
+        paymentService.updateEmailNotificationSentForPayment(transactionId, true);
+
+        // Assert
+        verify(paymentInfoRepository, never()).save(any(PaymentInfo.class));
+        verify(paymentInfoRepository, times(1)).findFirstByTransactionIdOrderByCreatedAtDesc(transactionId);
+    }
+}
