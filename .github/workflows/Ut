@@ -1,0 +1,87 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+public class PaymentServiceTest {
+
+    @InjectMocks
+    private PaymentService paymentService;
+
+    @Mock
+    private PaymentInfoRepository paymentInfoRepository;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void findAllPendingPaymentsShouldReturnPendingPayments() {
+        // Arrange
+        String transactionStatus = "IN_PROCESS";
+        LocalDateTime lastModifiedAt = LocalDateTime.now();
+        boolean isFailureNotificationSent = false;
+
+        List<PaymentInfo> expectedPayments = new ArrayList<>();
+        when(paymentInfoRepository.findAlLPendingPayments(
+                transactionStatus, lastModifiedAt, isFailureNotificationSent))
+                .thenReturn(expectedPayments);
+
+        // Act
+        List<PaymentInfo> actualPayments = paymentService.findAllPendingPayments(
+                transactionStatus, lastModifiedAt, isFailureNotificationSent);
+
+        // Assert
+        assertEquals(expectedPayments, actualPayments);
+    }
+
+    @Test
+    public void updateEmailNotificationSentForPaymentShouldUpdateNotificationStatus() {
+        // Arrange
+        String transactionId = "sampleTransactionId";
+        boolean isFailureNotificationSent = true;
+
+        PaymentInfo paymentInfo = new PaymentInfo(); // Create a sample PaymentInfo instance
+        Optional<PaymentInfo> optionalPaymentInfo = Optional.of(paymentInfo);
+
+        when(paymentInfoRepository.findFirstByTransactionIdOrderByCreatedAtDesc(transactionId))
+                .thenReturn(optionalPaymentInfo);
+
+        // Act
+        paymentService.updateEmailNotificationSentForPayment(transactionId, isFailureNotificationSent);
+
+        // Assert
+        verify(paymentInfoRepository).save(paymentInfo.toBuilder()
+                .lastModifiedAt(any(LocalDateTime.class))
+                .isFailureNotificationSent(isFailureNotificationSent)
+                .build());
+    }
+
+    @Test
+    public void updateEmailNotificationSentForPaymentShouldHandleMissingPaymentInfo() {
+        // Arrange
+        String transactionId = "nonExistentTransactionId";
+        boolean isFailureNotificationSent = true;
+
+        Optional<PaymentInfo> optionalPaymentInfo = Optional.empty();
+
+        when(paymentInfoRepository.findFirstByTransactionIdOrderByCreatedAtDesc(transactionId))
+                .thenReturn(optionalPaymentInfo);
+
+        // Act
+        paymentService.updateEmailNotificationSentForPayment(transactionId, isFailureNotificationSent);
+
+        // Assert (ensure no interactions with save method)
+        verify(paymentInfoRepository, never()).save(any(PaymentInfo.class));
+    }
+}
