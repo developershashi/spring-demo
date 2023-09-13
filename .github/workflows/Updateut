@@ -1,0 +1,51 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import static org.mockito.Mockito.*;
+
+public class PaymentServiceTest {
+
+    @InjectMocks
+    private PaymentService paymentService;
+
+    @Mock
+    private Exchange exchange;
+
+    private static final String TRANSACTION_ID = "transactionId";
+    private static final boolean isFailureNotificationSentTrue = true;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    public void updateNotificationSentForPendingPaymentShouldUpdateNotificationStatus() {
+        // Arrange
+        String transactionId = "sampleTransactionId";
+        when(exchange.getProperty(TRANSACTION_ID, String.class)).thenReturn(transactionId);
+
+        // Act
+        paymentService.updateNotificationSentForPendingPayment(exchange);
+
+        // Assert
+        verify(exchange).getProperty(TRANSACTION_ID, String.class);
+        verify(paymentService).updateEmailNotificationSentForPayment(transactionId, isFailureNotificationSentTrue);
+    }
+
+    @Test
+    public void updateNotificationSentForPendingPaymentShouldHandleNullTransactionId() {
+        // Arrange
+        when(exchange.getProperty(TRANSACTION_ID, String.class)).thenReturn(null);
+
+        // Act
+        paymentService.updateNotificationSentForPendingPayment(exchange);
+
+        // Assert
+        verify(exchange).getProperty(TRANSACTION_ID, String.class);
+        verifyNoInteractions(paymentService); // Ensure that the paymentService is not called
+    }
+}
