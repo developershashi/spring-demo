@@ -1,0 +1,84 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationReadyEvent;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.mockito.Mockito.*;
+
+@SpringBootTest
+public class YourServiceTest {
+
+    @Mock
+    private PaymentService paymentService;
+
+    @Mock
+    private ProducerTemplate producerTemplate;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    @Mock
+    private Log log;
+
+    private YourService yourService;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+        yourService = new YourService(paymentService, producerTemplate, objectMapper, log);
+    }
+
+    /**
+     * Test the pushMessagesToEms method when there are no payments with an open transaction status.
+     */
+    @Test
+    public void testPushMessagesToEmsNoOpenPayments() {
+        // Arrange
+        when(paymentService.getPaymentsByTransactionStatus(YourService.TRANSACTION_STATUS_OPEN)).thenReturn(new ArrayList<>());
+
+        // Act
+        yourService.pushMessagesToEms();
+
+        // Assert
+        // Verify that producerTemplate.sendBody was never called because there are no open payments.
+        verify(producerTemplate, never()).sendBody(anyString(), any());
+    }
+
+    /**
+     * Test the pushMessagesToEms method when there are open payments to process.
+     */
+    @Test
+    public void testPushMessagesToEmsWithOpenPayments() throws JsonProcessingException {
+        // Arrange
+        List<PaymentInfo> openPayments = createOpenPayments(); // Create a list of open payments for testing
+        when(paymentService.getPaymentsByTransactionStatus(YourService.TRANSACTION_STATUS_OPEN)).thenReturn(openPayments);
+
+        // Mock ObjectMapper behavior
+        when(objectMapper.writeValueAsString(any())).thenReturn("mockedJSON");
+
+        // Act
+        yourService.pushMessagesToEms();
+
+        // Assert
+        // Verify that producerTemplate.sendBody was called once for each open payment.
+        verify(producerTemplate, times(openPayments.size())).sendBody(eq(YourService.EMS_PRODUCER_DLC_ENDPOINT), anyString());
+    }
+
+    /**
+     * Helper method to create a list of open PaymentInfo objects for testing.
+     */
+    private List<PaymentInfo> createOpenPayments() {
+        // Create and return a list of open PaymentInfo objects
+        // Add as many PaymentInfo objects as needed for testing.
+        List<PaymentInfo> openPayments = new ArrayList<>();
+        openPayments.add(new PaymentInfo(/* initialize with necessary data */));
+        openPayments.add(new PaymentInfo(/* initialize with necessary data */));
+        return openPayments;
+    }
+}
