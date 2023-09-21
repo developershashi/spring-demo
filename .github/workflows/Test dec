@@ -1,0 +1,91 @@
+import org.apache.camel.Exchange;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class DecryptionProcessorTest {
+
+    @Mock
+    private Exchange exchange;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    void testProcessWithValidInput() throws Exception {
+        // Arrange
+        String privateKeyRef = "validPrivateKeyRef";
+        String passphraseRef = "validPassphraseRef";
+        String encryptedData = "encryptedData";
+        byte[] decryptedData = "decryptedData".getBytes();
+
+        when(exchange.getIn().getBody(String.class)).thenReturn(encryptedData);
+        when(VaultUtil.getKeyFromCredVaultByRefId(privateKeyRef)).thenReturn("privateKey");
+        when(VaultUtil.getPasswordFromCredRef(passphraseRef)).thenReturn("passphrase");
+        when(PgpDecryptionUtil.getInstance("privateKey", "passphrase").decrypt(encryptedData.getBytes()))
+                .thenReturn(decryptedData);
+
+        DecryptionProcessor processor = new DecryptionProcessor();
+        processor.privateKeyRef = privateKeyRef;
+        processor.passphraseRef = passphraseRef;
+
+        // Act
+        processor.process(exchange);
+
+        // Assert
+        verify(exchange.getIn(), times(1)).setBody(new String(decryptedData));
+    }
+
+    @Test
+    void testProcessWithEmptyBody() {
+        // Arrange
+        when(exchange.getIn().getBody(String.class)).thenReturn(null); // Simulate an empty body
+
+        DecryptionProcessor processor = new DecryptionProcessor();
+
+        // Act and Assert
+        assertThrows(RuntimeException.class, () -> processor.process(exchange));
+    }
+
+    @Test
+    void testProcessWithCredLookUpException() throws Exception {
+        // Arrange
+        String privateKeyRef = "validPrivateKeyRef";
+        String passphraseRef = "validPassphraseRef";
+
+        when(exchange.getIn().getBody(String.class)).thenReturn("encryptedData");
+        when(VaultUtil.getKeyFromCredVaultByRefId(privateKeyRef)).thenThrow(new CredLookUpException("Lookup failed"));
+
+        DecryptionProcessor processor = new DecryptionProcessor();
+        processor.privateKeyRef = privateKeyRef;
+        processor.passphraseRef = passphraseRef;
+
+        // Act and Assert
+        assertThrows(CredLookUpException.class, () -> processor.process(exchange));
+    }
+
+    @Test
+    void testProcessWithPGPException() throws Exception {
+        // Arrange
+        String privateKeyRef = "validPrivateKeyRef";
+        String passphraseRef = "validPassphraseRef";
+
+        when(exchange.getIn().getBody(String.class)).thenReturn("encryptedData");
+        when(VaultUtil.getKeyFromCredVaultByRefId(privateKeyRef)).thenReturn("privateKey");
+        when(VaultUtil.getPasswordFromCredRef(passphraseRef)).thenReturn("passphrase");
+        when(PgpDecryptionUtil.getInstance("privateKey", "passphrase").decrypt(any(byte[].class)))
+                .thenThrow(new PGPException("Decryption failed"));
+
+        DecryptionProcessor processor = new DecryptionProcessor();
+        processor.privateKeyRef = privateKeyRef;
+        processor.passphraseRef = passphraseRef;
+
+        // Act and Assert
+        assertThrows(UnmarshalException.class, () -> processor.process(exchange));
+    }
+}
