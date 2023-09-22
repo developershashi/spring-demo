@@ -1,0 +1,59 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import java.util.Arrays;
+import java.util.List;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+// Import relevant classes and annotations for Spring Boot testing
+
+@SpringBootTest
+public class PaymentInfoServiceTest {
+
+    @Autowired
+    private PaymentInfoService paymentInfoService;
+
+    @Mock
+    private PaymentInfoRepository paymentInfoRepository;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.initMocks(this);
+        paymentInfoService = new PaymentInfoService(paymentInfoRepository);
+    }
+
+    @Test
+    void testGetPaymentsByTransactionStatus() {
+        // Arrange
+        String transactionStatus = "completed";
+        PaymentInfo payment1 = new PaymentInfo(/* create a PaymentInfo object with the desired transactionStatus */);
+        PaymentInfo payment2 = new PaymentInfo(/* create another PaymentInfo object with the same transactionStatus */);
+        List<PaymentInfo> expectedPayments = Arrays.asList(payment1, payment2);
+
+        when(paymentInfoRepository.findByTransactionStatus(transactionStatus)).thenReturn(expectedPayments);
+
+        // Act
+        List<PaymentInfo> actualPayments = paymentInfoService.getPaymentsByTransactionStatus(transactionStatus);
+
+        // Assert
+        assertEquals(expectedPayments.size(), actualPayments.size());
+        assertTrue(expectedPayments.containsAll(actualPayments));
+    }
+
+    @Test
+    void testGetPaymentsByTransactionStatusWithNoResults() {
+        // Arrange
+        String transactionStatus = "nonexistentStatus";
+
+        // Simulate an empty result from the repository
+        when(paymentInfoRepository.findByTransactionStatus(transactionStatus)).thenReturn(Collections.emptyList());
+
+        // Act
+        List<PaymentInfo> actualPayments = paymentInfoService.getPaymentsByTransactionStatus(transactionStatus);
+
+        // Assert
+        assertTrue(actualPayments.isEmpty());
+    }
+}
