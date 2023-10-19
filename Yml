@@ -1,0 +1,5 @@
+# Enable JMX
+spring.jmx.enabled=true
+
+# JMX domain name
+spring.jmx.default_domain=myapp
