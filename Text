@@ -1,0 +1,10 @@
+I want to inform my manager that I have been working on the task involving Prometheus
+metrics through JMX. I made several attempts, including running scripts to download the
+Prometheus JAR and installing it. I also created Prometheus YAML and config.yml files, but it
+didn't work. When I enabled JMX locally, I could see the metrics and health endpoints, but
+they weren't accessible from Prometheus. In addition, I investigated the Spring Web
+vulnerability issue and found that it is related to JK 11. The potential solutions include
+downgrading the JD version to 1.8, which would make the current Spring version
+compatible, or upgrading and testing the system. I asked the infrastructure team about the
+estimated time required for testing on the development environment, and they mentioned it
+would take a maximum of 1 hour. I would like to inquire if we can proceed with the upgrade.
