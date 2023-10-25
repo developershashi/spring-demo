@@ -1,0 +1,54 @@
+import static org.mockito.Mockito.*;
+
+import javax.jms.JMSException;
+
+import org.junit.Before;
+import org.junit.Test;
+
+public class YourClassTest {
+
+    private YourClass yourClass; // Replace YourClass with the actual class name
+    private Session session;
+    private MessageProducer messageProducer;
+    private Exchange exchange;
+
+    @Before
+    public void setUp() {
+        yourClass = new YourClass(); // Create an instance of your class
+        session = mock(Session.class);
+        messageProducer = mock(MessageProducer.class);
+        exchange = mock(Exchange.class);
+        when(exchange.getProperty(AppConstants.FEED_TYPE, String.class)).thenReturn(AppConstants.PAYMENT_FEED);
+    }
+
+    @Test
+    public void testJMSExceptionHandling() throws JMSException {
+        when(session.createTextMessage()).thenThrow(new JMSException("Test JMS Exception"));
+
+        try {
+            yourClass.publish("test message", exchange);
+        } catch (PaymentJMSException e) {
+            assertEquals("Test JMS Exception", e.getMessage());
+            assertSame(JMSException.class, e.getCause().getClass());
+        }
+
+        verify(session, times(1)).rollback();
+    }
+
+    @Test
+    public void testUnexpectedFeed() throws JMSException {
+        when(exchange.getProperty(AppConstants.FEED_TYPE, String.class)).thenReturn("SomeUnexpectedFeed");
+        when(session.createTextMessage()).thenThrow(new JMSException("Test JMS Exception"));
+
+        try {
+            yourClass.publish("test message", exchange);
+        } catch (PaymentJMSException e) {
+            fail("Should not throw PaymentJMSException for an unexpected feed.");
+        } catch (AcuJMSException e) {
+            fail("Should not throw AcuJMSException for an unexpected feed.");
+        }
+
+        verify(session, times(1)).rollback();
+        // You may want to capture the log output and assert it as well
+    }
+}
