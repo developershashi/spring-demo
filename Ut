@@ -1,0 +1,74 @@
+import org.apache.camel.Exchange;
+import org.apache.camel.impl.DefaultExchange;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnitRunner;
+
+import javax.jms.Connection;
+import javax.jms.JMSException;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.*;
+
+@RunWith(MockitoJUnitRunner.class)
+public class JmsPublisherTest {
+    private JmsPublisher jmsPublisher;
+
+    @Mock
+    private Connection connection;
+
+    @Mock
+    private Session session;
+
+    @Mock
+    private MessageProducer messageProducer;
+
+    @Before
+    public void setUp() {
+        jmsPublisher = new JmsPublisher(connection, session, messageProducer);
+    }
+
+    @Test
+    public void testPublishMessage() throws JMSException {
+        String message = "Test message";
+        Exchange exchange = new DefaultExchange(null);
+
+        // Stub the behavior of session.createTextMessage()
+        TextMessage textMessage = mock(TextMessage.class);
+        when(session.createTextMessage()).thenReturn(textMessage);
+
+        // Test the publish method
+        jmsPublisher.publish(message, exchange);
+
+        // Verify that the session, messageProducer, and textMessage were called as expected
+        verify(session).commit();
+        verify(messageProducer).setDeliveryMode(DeliveryMode.PERSISTENT);
+        verify(messageProducer).send(textMessage);
+        verify(textMessage).setText(message);
+    }
+
+    @Test
+    public void testPublishMessageWithJMSException() throws JMSException {
+        String message = "Test message";
+        Exchange exchange = new DefaultExchange(null);
+
+        // Stub the behavior of session.createTextMessage()
+        TextMessage textMessage = mock(TextMessage.class);
+        when(session.createTextMessage()).thenReturn(textMessage);
+
+        // Simulate a JMSException
+        JMSException jmsException = new JMSException("Session is closed");
+        doThrow(jmsException).when(messageProducer).send(textMessage);
+
+        // Test the publish method with a JMSException
+        jmsPublisher.publish(message, exchange);
+
+        // Verify that the session.rollback() was called due to the JMSException
+        verify(session).rollback();
+    }
+}
