@@ -1,0 +1,6 @@
+.choice()
+    .when(header("CamelBatchSize").isGreaterThan(1))
+        .log("Duplicate file detected. Sending email notification.")
+        .process("emailNotificationProcessor") // Add your custom processor for sending email
+    .end()
+.endChoice()
