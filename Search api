@@ -1,0 +1,85 @@
+// Enum for valid keys
+enum ValidKeys {
+    NAME,
+    AGE,
+    CITY
+}
+
+// Service class for handling search logic
+@Service
+public class SearchService {
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    public Object search(String key, String value) {
+        // Check if key is valid
+        if (!Arrays.stream(ValidKeys.values()).map(Enum::name).collect(Collectors.toList()).contains(key.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid key");
+        }
+
+        // Search in MongoDB
+        Query query = new Query();
+        query.addCriteria(Criteria.where(key).is(value));
+        return mongoTemplate.findOne(query, Object.class, "your_collection_name");
+    }
+}
+
+// Controller class for REST API
+@RestController
+public class SearchController {
+    @Autowired
+    private SearchService searchService;
+
+    @GetMapping("/search")
+    public ResponseEntity<Object> search(@RequestParam String key, @RequestParam String value) {
+        try {
+            Object result = searchService.search(key, value);
+            return new ResponseEntity<>(result, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(Collections.singletonMap("error", e.getMessage()), HttpStatus.BAD_REQUEST);
+        }
+    }
+}
+
+// Configuration class for MongoDB
+@Configuration
+public class MongoConfig extends AbstractMongoClientConfiguration {
+    @Override
+    protected String getDatabaseName() {
+        return "your_database_name";
+    }
+
+    @Override
+    public MongoClient mongoClient() {
+        return MongoClients.create("mongodb://localhost:27017");
+    }
+}
+
+// Unit test class for SearchService
+@RunWith(MockitoJUnitRunner.class)
+public class SearchServiceTest {
+    @Mock
+    private MongoTemplate mongoTemplate;
+
+    @InjectMocks
+    private SearchService searchService;
+
+    @Test
+    public void testValidSearch() {
+        // Mocking MongoDB response
+        when(mongoTemplate.findOne(any(Query.class), eq(Object.class), eq("your_collection_name"))).thenReturn(someObject);
+
+        // Perform search
+        Object result = searchService.search("NAME", "John");
+
+        // Assertion
+        assertNotNull(result);
+        // Add more assertions as needed
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidKey() {
+        // Perform search with invalid key
+        searchService.search("INVALID_KEY", "value");
+    }
+}
