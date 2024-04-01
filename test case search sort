@@ -1,0 +1,51 @@
+@RunWith(MockitoJUnitRunner.class)
+public class SearchServiceTest {
+    @Mock
+    private MongoTemplate mongoTemplate;
+
+    @InjectMocks
+    private SearchServiceImpl searchService;
+
+    @Test
+    public void testValidSearch() {
+        // Mocking MongoDB response
+        when(mongoTemplate.find(any(Query.class), eq(Object.class), eq("your_collection_name")))
+                .thenReturn(Collections.singletonList(new Object()));
+
+        // Perform search
+        List<Object> result = searchService.search(new SearchQuery("name", "John"), 0, 10, null, null);
+
+        // Assertion
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        // Add more assertions as needed
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidKey() {
+        // Perform search with invalid key
+        searchService.search(new SearchQuery("invalid_key", "value"), 0, 10, null, null);
+    }
+}
+
+@RunWith(SpringRunner.class)
+@WebMvcTest(SearchController.class)
+public class SearchControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private SearchService searchService;
+
+    @Test
+    public void testSearch() throws Exception {
+        List<Object> mockResults = Collections.singletonList(new Object());
+        when(searchService.search(any(SearchQuery.class), anyInt(), anyInt(), any(), any())).thenReturn(mockResults);
+
+        mockMvc.perform(get("/search")
+                .param("keyAlias", "name")
+                .param("value", "John"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)));
+    }
+}
