@@ -1,0 +1,90 @@
+// Model class representing the search query
+public class SearchQuery {
+    private String keyAlias;
+    private String value;
+    // Getters and setters
+}
+
+// Service interface defining the search operations
+public interface SearchService {
+    List<Object> search(SearchQuery query, int page, int size, String sortBy, String sortOrder);
+}
+
+// Implementation of the search service
+@Service
+public class SearchServiceImpl implements SearchService {
+    private final MongoTemplate mongoTemplate;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchServiceImpl.class);
+
+    @Autowired
+    public SearchServiceImpl(MongoTemplate mongoTemplate) {
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    @Override
+    public List<Object> search(SearchQuery query, int page, int size, String sortBy, String sortOrder) {
+        // Logging
+        LOGGER.info("Executing search with query: {}", query);
+
+        // Map alias to enum key
+        ValidKeys key = ValidKeys.fromAlias(query.getKeyAlias());
+
+        // Create query with criteria
+        Query mongoQuery = new Query();
+        mongoQuery.addCriteria(Criteria.where(key.name().toLowerCase()).is(query.getValue()));
+
+        // Apply pagination
+        mongoQuery.with(PageRequest.of(page, size));
+
+        // Apply sorting
+        if (sortBy != null && !sortBy.isEmpty()) {
+            Sort.Direction direction = sortOrder != null && sortOrder.equalsIgnoreCase("desc") ?
+                    Sort.Direction.DESC : Sort.Direction.ASC;
+            mongoQuery.with(Sort.by(direction, sortBy));
+        }
+
+        // Perform search
+        return mongoTemplate.find(mongoQuery, Object.class, "your_collection_name");
+    }
+}
+
+// Controller class for the search API
+@RestController
+public class SearchController {
+    private final SearchService searchService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchController.class);
+
+    @Autowired
+    public SearchController(SearchService searchService) {
+        this.searchService = searchService;
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Object>> search(SearchQuery query,
+                                               @RequestParam(defaultValue = "0") int page,
+                                               @RequestParam(defaultValue = "10") int size,
+                                               @RequestParam(required = false) String sortBy,
+                                               @RequestParam(required = false) String sortOrder) {
+        try {
+            // Logging
+            LOGGER.info("Received search request with query: {}", query);
+
+            List<Object> results = searchService.search(query, page, size, sortBy, sortOrder);
+
+            // Logging
+            LOGGER.info("Search successful. Returned {} results.", results.size());
+
+            return new ResponseEntity<>(results, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            // Logging
+            LOGGER.error("Invalid search request: {}", e.getMessage());
+
+            return new ResponseEntity<>(Collections.emptyList(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            // Logging
+            LOGGER.error("Internal server error during search: {}", e.getMessage());
+
+            return new ResponseEntity<>(Collections.emptyList(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}
