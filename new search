@@ -1,0 +1,59 @@
+// Enum for valid keys with aliases
+enum ValidKeys {
+    NAME("name"),
+    AGE("age"),
+    CITY("city");
+
+    private String alias;
+
+    ValidKeys(String alias) {
+        this.alias = alias;
+    }
+
+    public String getAlias() {
+        return alias;
+    }
+
+    public static ValidKeys fromAlias(String alias) {
+        for (ValidKeys validKey : ValidKeys.values()) {
+            if (validKey.getAlias().equalsIgnoreCase(alias)) {
+                return validKey;
+            }
+        }
+        throw new IllegalArgumentException("Invalid key alias");
+    }
+}
+
+// Service class for handling search logic
+@Service
+public class SearchService {
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    public Object search(String alias, String value) {
+        // Map alias to enum key
+        ValidKeys key = ValidKeys.fromAlias(alias);
+
+        // Search in MongoDB
+        Query query = new Query();
+        query.addCriteria(Criteria.where(key.name().toLowerCase()).is(value));
+        return mongoTemplate.findOne(query, Object.class, "your_collection_name");
+    }
+}
+
+// Controller class for REST API
+@RestController
+public class SearchController {
+    @Autowired
+    private SearchService searchService;
+
+    @GetMapping("/search")
+    public ResponseEntity<Object> search(@RequestParam String keyAlias, @RequestParam String value) {
+        try {
+            Object result = searchService.search(keyAlias, value);
+            return new ResponseEntity<>(result, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(Collections.singletonMap("error", e.getMessage()), HttpStatus.BAD_REQUEST);
+        }
+    }
+}
