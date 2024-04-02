@@ -1,0 +1,129 @@
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+// Service interface defining the search operations
+public interface SearchService {
+    List<Object> search(SearchQuery query, Pageable pageable);
+}
+
+// Implementation of the search service
+@Service
+public class SearchServiceImpl implements SearchService {
+    private final MongoTemplate mongoTemplate;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchServiceImpl.class);
+
+    @Autowired
+    public SearchServiceImpl(MongoTemplate mongoTemplate) {
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    @Override
+    public List<Object> search(SearchQuery query, Pageable pageable) {
+        // Logging
+        LOGGER.info("Executing search with query: {}", query);
+
+        // Map alias to enum key
+        ValidKeys key = ValidKeys.fromAlias(query.getKeyAlias());
+
+        // Create query with criteria
+        Query mongoQuery = new Query();
+        mongoQuery.addCriteria(Criteria.where(key.name().toLowerCase()).is(query.getValue()));
+
+        // Apply pagination and sorting
+        mongoQuery.with(pageable);
+
+        // Perform search
+        return mongoTemplate.find(mongoQuery, Object.class, "your_collection_name");
+    }
+}
+
+// Controller class for the search API
+@RestController
+public class SearchController {
+    private final SearchService searchService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchController.class);
+
+    @Autowired
+    public SearchController(SearchService searchService) {
+        this.searchService = searchService;
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Object>> search(SearchQuery query, Pageable pageable) {
+        try {
+            // Logging
+            LOGGER.info("Received search request with query: {}", query);
+
+            List<Object> results = searchService.search(query, pageable);
+
+            // Logging
+            LOGGER.info("Search successful. Returned {} results.", results.size());
+
+            return new ResponseEntity<>(results, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            // Logging
+            LOGGER.error("Invalid search request: {}", e.getMessage());
+
+            return new ResponseEntity<>(Collections.emptyList(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            // Logging
+            LOGGER.error("Internal server error during search: {}", e.getMessage());
+
+            return new ResponseEntity<>(Collections.emptyList(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}
+
+
+//test case
+
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+@RunWith(MockitoJUnitRunner.class)
+public class SearchServiceTest {
+    @Mock
+    private MongoTemplate mongoTemplate;
+
+    @InjectMocks
+    private SearchServiceImpl searchService;
+
+    @Test
+    public void testValidSearch() {
+        // Mocking MongoDB response
+        when(mongoTemplate.find(any(Query.class), any(), any())).thenReturn(Collections.singletonList(new Object()));
+
+        // Mock Pageable and Sort
+        Pageable pageable = PageRequest.of(0, 10, Sort.Direction.DESC, "createdAt");
+
+        // Perform search
+        List<Object> result = searchService.search(new SearchQuery("name", "John"), pageable);
+
+        // Assertion
+        assertEquals(1, result.size());
+        // Add more assertions as needed
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidKey() {
+        // Mock Pageable and Sort
+        Pageable pageable = PageRequest.of(0, 10, Sort.Direction.DESC, "createdAt");
+
+        // Perform search with invalid key
+        searchService.search(new SearchQuery("invalid_key", "value"), pageable);
+    }
+}
