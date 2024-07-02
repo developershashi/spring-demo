@@ -1,0 +1,68 @@
+Table of Contents
+Introduction
+System Architecture
+Workflow Descriptions
+Payment Flow
+ACU Flow
+Error Handling
+Notifications
+Technology Stack
+Introduction
+The EMS Adapter Service is designed to handle two primary workflows: Payment Flow and ACU Flow. The service integrates with various systems to fetch, process, store, and communicate transaction data. It uses Apache Camel for integration and MongoDB for data storage, ensuring seamless handling of transactions from external sources to internal processing and response management.
+
+System Architecture
+The system architecture consists of the following components:
+
+FTP Location: The source from which files are fetched.
+EMS Adapter Service: The core service handling file processing and integration.
+MongoDB: The database for storing transaction data.
+EMS Queue: The message queue for communication with the GPS service.
+GPS Service: Consumes messages from the EMS queue and sends back responses.
+DLC Queue: Handles failed transactions for retry.
+OPS Team Notification: Sends email notifications for failed transactions.
+Workflow Descriptions
+Payment Flow
+Overview
+The Payment Flow handles the processing of payment files fetched from an FTP location within the GS system. These files originate from NNIP territory outside the GS system and are deposited into the FTP location in an encrypted format with a signature.
+
+Steps
+Fetch File: The EMS Adapter Service continuously polls the FTP location for new files using Apache Camel's file polling route.
+Decrypt File: Upon detecting a new file, the service fetches and decrypts it.
+Unmarshal File: The decrypted file, originally in XML format, is unmarshalled into JSON format.
+Map Fields: The fields in the JSON file are mapped to POJO classes in the required format.
+Store Transactions: Each transaction from the file is stored as a separate document in MongoDB, with the unique source code field acting as the primary key.
+Publish to EMS Queue: Once all records are stored with a status of 'new', the service publishes each transaction to the EMS queue as a separate topic using Tipko JMS.
+Update Status: The transaction status in MongoDB is updated to 'in process'.
+Handle Responses: The GPS service consumes the transactions from the EMS queue and sends back asynchronous responses.
+Update Status Based on Response: The EMS Adapter Service updates the transaction status in MongoDB based on the response (success or failure).
+Error Handling: In case of technical issues, the transaction is moved to the DLC queue for retry.
+ACU Flow
+Overview
+The ACU Flow follows a similar process to the Payment Flow but is tailored to handle ACU-specific transactions. Files in the ACU flow are already in JSON format and do not require unmarshalling.
+
+Steps
+Fetch File: The EMS Adapter Service polls a different FTP location for ACU files.
+Store Transactions: The JSON file is processed and stored directly in MongoDB.
+Publish to EMS Queue: Each transaction is published to the EMS queue as a separate topic.
+Update Status: The transaction status in MongoDB is updated to 'in process'.
+Handle Responses: The GPS service consumes the transactions from the EMS queue and sends back asynchronous responses.
+Update Status Based on Response: The EMS Adapter Service updates the transaction status in MongoDB based on the response.
+Error Handling: In case of technical issues, the transaction is moved to the DLC queue for retry.
+Error Handling
+The EMS Adapter Service incorporates robust error handling mechanisms:
+
+DLC Queue: Transactions encountering errors are moved to the Dead Letter Channel (DLC) queue. The service polls this queue every 10 minutes to retry publishing the transaction to the EMS queue.
+Asynchronous Responses: Responses from the GPS service are handled asynchronously. If a response indicates failure, the transaction status is updated to 'failure', and an email notification is sent to the OPS team.
+Exception Handling: Any technical exceptions are logged, and the affected transactions are handled appropriately to ensure reliability and data integrity.
+Notifications
+To ensure transparency and timely intervention, the EMS Adapter Service sends email notifications to the OPS team in case of transaction failures. These notifications include detailed information about the request and response, aiding in quick resolution of issues.
+
+Technology Stack
+The EMS Adapter Service leverages the following technologies:
+
+Integration Framework: Apache Camel
+Database: MongoDB
+Message Queue: Tipko JMS
+Programming Language: Java
+Libraries: JAXB for XML to JSON conversion, encryption/decryption libraries
+Monitoring and Alerts: Email notifications for OPS team
