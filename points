@@ -1,0 +1,8 @@
+Verifying the PGP public key signature after decryption.
+Validating account configuration details after mapping fields to POJO.
+Creating an event listener that works at application startup to fetch previously failed transactions with OPEN status and republish them to the EMS queue.
+Moving the file from the Payment/ACU folder to the processed folder after publishing transactions on EMS.
+
+Validate account configuration details (business driver ID, posting detail, IBAN bank IDs).
+
+
