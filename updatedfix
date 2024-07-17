@@ -1,0 +1,72 @@
+public void configure() {
+    log.info("Configuring Database Polling Route...");
+
+    // Global exception handling
+    onException(Exception.class)
+        .handled(true)
+        .log(LoggingLevel.ERROR, DATABASE_POLLING_ROUTE_GLOBAL_EXCEPTION_LOG)
+        .end();
+
+    // Database polling
+    from("timer://pollTimer?period=" + config.getDataBasePollingInterval())
+        .routeId("database-polling-route")
+        .process(exchange -> {
+            log.info("Fetching retry transactions...");
+            List<Map<String, String>> rawTransactions = transactionService.fetchRetryTransactions();
+            if (rawTransactions == null || rawTransactions.isEmpty()) {
+                log.warn("No transactions fetched.");
+                return;
+            }
+            List<TransactionInfo> transactionInfos = rawTransactions.stream()
+                .map(this::buildTransactionInfo)
+                .collect(Collectors.toList());
+            exchange.getIn().setBody(transactionInfos);
+        })
+        .split(body())
+        .process(exchange -> {
+            TransactionInfo transactionInfo = exchange.getIn().getBody(TransactionInfo.class);
+            if (transactionInfo == null) {
+                throw new RuntimeException("TransactionInfo is null.");
+            }
+            log.info("Processing transaction: {}", transactionInfo);
+            GpsRequest gpsRequest = transactionInfo.getGpsRequest();
+            if (gpsRequest == null) {
+                throw new RuntimeException("GpsRequest is null for transaction: " + transactionInfo);
+            }
+            exchange.setProperty("transactionInfo", transactionInfo);
+            exchange.setProperty("gpsRequest", gpsRequest);
+            exchange.getIn().setBody(gpsRequest);
+        })
+        .to("direct:publishAndProcess")
+        .end();
+
+    from("direct:publishAndProcess")
+        .routeId("publish-and-process-route")
+        .marshal().json() // Convert POJO to JSON before publishing to EMS
+        .process(exchange -> {
+            String jsonMessage = exchange.getIn().getBody(String.class);
+            log.info("Publishing message: {}", jsonMessage);
+            jmsPublisher.publish(jsonMessage, exchange);
+        })
+        .process(exchange -> {
+            log.info("Updating transaction status to IN-PROCESS");
+        })
+        // After publishing, update transaction status from RETRY to IN-PROCESS
+        .bean("dataProcessor", "updateTransactionInfoRetryStatus")
+        .end();
+}
+
+private TransactionInfo buildTransactionInfo(Map<String, String> rawTransaction) {
+    TransactionInfo transactionInfo = new TransactionInfo();
+    // Example of setting fields, adjust according to actual structure
+    transactionInfo.setId(rawTransaction.get("id"));
+    transactionInfo.setGpsRequest(convertToGpsRequest(rawTransaction.get("gpsRequest")));
+    // ... convert and set other fields as necessary
+    return transactionInfo;
+}
+
+private GpsRequest convertToGpsRequest(String gpsRequestStr) {
+    // Implement conversion from String to GpsRequest
+    // This could be a JSON parsing, or any other method to create a GpsRequest object from a String
+    return new GpsRequest(gpsRequestStr); // Adjust according to actual GpsRequest constructor and fields
+}
