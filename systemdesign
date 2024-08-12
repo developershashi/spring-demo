@@ -1,0 +1,85 @@
+Design Document: Resubmitted Transaction Handling
+Overview
+NNIP will resubmit ACU transactions via FTP with modifications to certain fields in the request payload, such as transactionId and createdDate. This design document outlines the process to handle these resubmitted transactions, validate them, and update the status of the original transactions.
+
+Use Case
+Resubmission of Transactions: NNIP resubmits transactions with a modified transactionId and createdDate.
+Validation and Processing: Validate the resubmitted transaction, update the status of the original transaction, and handle errors.
+Requirements
+Transaction ID Modification:
+
+Prefix: retry_
+Suffix: _123
+Example: Original transactionId = 123456, Resubmitted transactionId = retry_123456_123
+Validation:
+
+Extract the first 6 digits from the resubmitted transactionId.
+Check if the original transaction (with the extracted ID) has a status of failure.
+If the validation fails, reject the file and notify the NNIP ops team.
+If the validation is successful, proceed to update the transaction information.
+Processing:
+
+Insert the resubmitted transaction record into the TransactionInfo table.
+Update the original transaction’s status to Retry from NNIP.
+Flow Diagram
+sql
+Copy code
++---------------------+        +------------------------+        +-------------------+
+| Receive FTP Request |  --->  | Extract and Validate   |  --->  | Update Status     |
+| with Transaction    |        | Transaction ID         |        | and Insert Record |
+| Data                |        |                        |        | into Database     |
++---------------------+        +------------------------+        +-------------------+
+                                          |
+                                          |
+                                          V
+                          +-------------------------------+
+                          | Notify NNIP Ops Team of       |
+                          | Rejected Records (if any)     |
+                          +-------------------------------+
+Detailed Steps
+1. Receive and Parse FTP Request
+Retrieve the file from the FTP server.
+Parse the file to extract transaction data.
+2. Extract and Validate Transaction ID
+Extract the transactionId from the resubmitted transaction payload.
+Strip the prefix (retry_) and suffix (_123) to get the original transactionId (e.g., 123456).
+Query the TransactionInfo table to find the most recent transaction with this ID.
+Check the status of the retrieved original transaction:
+If the status is Failure, proceed to the reject and notify step.
+If the status is Success, continue with processing the resubmitted transaction.
+3. Update Status and Insert Record
+Insert the Record:
+
+Insert the resubmitted transaction record into the TransactionInfo table.
+Update Original Transaction:
+
+Update the status of the original transaction (with the extracted ID) to Retry from NNIP.
+4. Handle Errors
+Validation Failure:
+Reject the file.
+Notify the NNIP ops team about the rejected records.
+Success:
+Proceed with the updates as outlined.
+Data Model
+TransactionInfo Table Schema
+transactionId: VARCHAR(255) (Primary Key)
+createdDate: DATETIME
+status: VARCHAR(50)
+Other relevant fields...
+Error Handling
+Log errors encountered during processing.
+Ensure notification to NNIP ops team includes details for troubleshooting.
+Notifications
+Rejection Notification: Include reason for rejection and affected transaction details.
+Security Considerations
+Ensure FTP server access is secured and transactions are encrypted during transmission.
+Validate input data to prevent SQL injection or other attacks.
+Implementation Plan
+Development: Implement the parsing, validation, and processing logic.
+Testing: Create test cases to validate different scenarios, including edge cases and failure conditions.
+Deployment: Deploy the changes to the production environment.
+Monitoring: Monitor the system for any issues post-deployment.
+Dependencies
+FTP server configuration.
+Access to the TransactionInfo table.
+Integration with the NNIP ops team's notification system.
