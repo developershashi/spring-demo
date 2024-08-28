@@ -1,0 +1,87 @@
+Design Document: Resubmit Process with Conditional Flow
+1. Objective
+To enhance the existing transaction processing system by adding a conditional resubmit feature that checks whether a transaction ID contains the "retry" string. If it does, the system updates the resubmit order collection and modifies transaction statuses based on the resubmit outcome. If not, the existing transaction flow continues unchanged.
+
+2. Scope
+Check Transaction ID: Determine if the transaction ID contains the string "retry."
+Conditional Flow:
+If the transaction ID contains "retry," proceed with the resubmit process.
+If the transaction ID does not contain "retry," continue with the existing transaction flow.
+Resubmit Order Collection: Create or update the resubmit order collection when applicable.
+Transaction Info Collection: Insert details of the resubmitted transaction ID with a status of "RESUBMIT."
+Status Updates: Update the original and resubmit transaction statuses based on the resubmit outcome.
+3. Process Flow
+3.1. Initial Check
+Input: Transaction ID.
+Condition: Check if the transaction ID contains the string "retry."
+True: Proceed with creating/updating the resubmit order collection.
+False: Continue with the existing flow.
+3.2. Existing Flow Continuation
+Condition: If the transaction ID does not contain "retry."
+Action: Execute the existing transaction processing flow.
+3.3. Resubmit Process
+Steps: Follow the detailed process flow as outlined in the previous design document for creating/updating collections and updating statuses based on the resubmit outcome.
+4. Data Model
+4.1. Resubmit Order Collection
+Field Name	Type	Description
+order_id	String	Unique identifier for the resubmit order.
+order_status	String	Status of the resubmit order (e.g., OPEN, APPROVED, REJECTED, CANCELLED).
+original_transaction_ids	List<String>	List of original transaction IDs.
+resubmit_transaction_ids	List<String>	List of resubmitted transaction IDs.
+created_at	DateTime	Timestamp when the order was created.
+updated_at	DateTime	Timestamp when the order was last updated.
+order_origin	String	Source or origin of the order.
+4.2. Transaction Info Collection
+Field Name	Type	Description
+transaction_id	String	Unique identifier for the transaction.
+status	String	Status of the transaction (e.g., FAILURE, RESUBMIT, RETRY, APPROVED, REJECTED, CANCELLED).
+original_transaction_id	String	The original transaction ID linked to this resubmit transaction.
+created_at	DateTime	Timestamp when the transaction was created.
+updated_at	DateTime	Timestamp when the transaction was last updated.
+5. Assumptions
+The transaction ID structure is known and follows a consistent pattern that allows checking for the "retry" string.
+The system has the necessary permissions to read, write, and update both resubmit_order and transaction_info collections.
+The transaction statuses are well-defined and do not overlap.
+6. Constraints
+The resubmit process should be idempotent to avoid duplicate entries.
+Proper error handling should be in place if the resubmit process fails at any stage.
+7. Security Considerations
+Ensure that the update operations are performed in a secure manner with audit logging enabled for tracking changes.
+Validate all inputs to prevent any injection attacks.
+8. Testing Plan
+Unit Tests: Verify individual components like checking transaction IDs, inserting into collections, and updating statuses.
+Integration Tests: Test the entire flow from transaction ID checking to the final status update.
+Performance Testing: Ensure the resubmit process can handle a large volume of transactions efficiently.
+9. Implementation Timeline
+Design Review: 1 week
+Development: 2-3 weeks
+Testing: 1-2 weeks
+Deployment: 1 week
+10. Conclusion
+This enhancement adds a conditional resubmit feature to the transaction processing system. The system checks for a specific pattern in transaction IDs and dynamically adjusts the workflow, ensuring that the correct processing path is followed while maintaining the integrity and efficiency of the system.
+
+Flow Chart Description
+Start:
+
+Entry point of the process.
+Check if Transaction ID Contains 'retry':
+
+Decision Node:
+Yes: Proceed to the resubmit process.
+No: Continue with the existing flow.
+Existing Flow Continuation:
+
+Action Node: Execute the existing transaction flow.
+End: End of the process for non-retry transactions.
+Resubmit Process:
+
+Sub-process:
+Create/Update Resubmit Order Collection.
+Insert Resubmit Transaction into Transaction Info Collection.
+Update Original Transaction Status.
+Evaluate Resubmit Outcome.
+Update statuses based on the outcome (Approved, Rejected, Cancelled).
+End: End of the process for retry transactions.
+I will now generate the visual flowchart based on this description.
+
+
