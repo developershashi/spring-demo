@@ -1,0 +1,185 @@
+Design Document: Enhanced Resubmit Process
+1. Objective
+To implement an enhanced resubmit process within the transaction processing system, where the system checks if a transaction ID contains the "retry" string. If it does, the process involves inserting and updating records in the resubmit order and transaction info collections. The process also handles different outcomes like approval, rejection, and cancellation with corresponding status updates.
+
+2. Scope
+Check Transaction ID: Determine if the transaction ID contains the string "retry."
+Resubmit Order Collection:
+Insert the resubmit transaction ID details.
+Update the collection as the resubmit process progresses.
+Transaction Info Collection: Insert the resubmit transaction ID with the status "RESUBMIT."
+Status Updates:
+Update the original transaction ID status from "FAILURE" to "Resubmit for approval."
+Handle approval, rejection, and cancellation by updating relevant statuses in both the resubmit and original transaction records.
+Ticket Generation: Generate a ticket for an approver to either approve or reject the resubmit request.
+3. Process Flow
+3.1. Initial Check
+Input: Transaction ID.
+Condition: Check if the transaction ID contains the string "retry."
+True: Proceed with inserting and updating the resubmit order collection.
+False: Continue with the existing flow.
+3.2. Insert into Resubmit Order Collection
+Action Node: Insert the resubmit transaction ID details into the resubmit_order collection with the status "OPEN."
+3.3. Update Transaction Info Collection
+Action Node: Insert the resubmit transaction ID into the transaction_info collection with the status "RESUBMIT."
+3.4. Update Original Transaction Status
+Action Node: Update the original transaction ID status from "FAILURE" to "Resubmit for approval."
+3.5. Generate Ticket for Approval
+Action Node: Generate a ticket for an approver to review the resubmit request.
+3.6. Approver Decision
+Decision Node: Approver can either approve, reject, or cancel the resubmit request.
+Approval:
+Update Resubmit Order Status: Update from "OPEN" to "APPROVED."
+Update Resubmit Transaction Status: Update from "RESUBMIT" to "RETRY."
+Update Original Transaction Status: Update from "Resubmit_for_approval" to "RESUBMIT_FOR_DORMANT."
+Rejection:
+Update Resubmit Order Status: Update from "OPEN" to "REJECTED."
+Update Resubmit Transaction Status: Update from "RESUBMIT" to "REJECTED."
+Update Original Transaction Status: Update from "Resubmit_for_approval" to "FAILURE."
+Cancellation:
+Update Resubmit Order Status: Update from "OPEN" to "CANCELLED."
+Update Resubmit Transaction Status: Update from "RESUBMIT" to "CANCELLED."
+Update Original Transaction Status: Update from "Resubmit_for_approval" to "FAILURE."
+4. Data Model
+4.1. Resubmit Order Collection
+Field Name	Type	Description
+order_id	String	Unique identifier for the resubmit order.
+order_status	String	Status of the resubmit order (e.g., OPEN, APPROVED, REJECTED, CANCELLED).
+original_transaction_ids	List<String>	List of original transaction IDs.
+resubmit_transaction_ids	List<String>	List of resubmitted transaction IDs.
+created_at	DateTime	Timestamp when the order was created.
+updated_at	DateTime	Timestamp when the order was last updated.
+order_origin	String	Source or origin of the order.
+4.2. Transaction Info Collection
+Field Name	Type	Description
+transaction_id	String	Unique identifier for the transaction.
+status	String	Status of the transaction (e.g., FAILURE, RESUBMIT, RETRY, APPROVED, REJECTED, CANCELLED).
+original_transaction_id	String	The original transaction ID linked to this resubmit transaction.
+created_at	DateTime	Timestamp when the transaction was created.
+updated_at	DateTime	Timestamp when the transaction was last updated.
+5. Assumptions
+The transaction ID structure is known and allows for checking the "retry" string.
+The system has necessary permissions to read, write, and update collections.
+The approver interface is capable of handling approvals, rejections, and cancellations.
+6. Constraints
+The resubmit process must ensure data consistency and be idempotent.
+Proper error handling is required to manage failures at any stage.
+7. Security Considerations
+Secure update operations with audit logging enabled.
+Input validation to prevent injection attacks.
+8. Testing Plan
+Unit Tests: Check individual components for inserting, updating, and decision-making.
+Integration Tests: Ensure the complete flow works as expected.
+Performance Testing: Verify the process can handle large transaction volumes.
+9. Implementation Timeline
+Design Review: 1 week
+Development: 2-3 weeks
+Testing: 1-2 weeks
+Deployment: 1 week
+10. Conclusion
+This design efficiently integrates a resubmit process that handles transaction updates and status changes based on approvals, rejections, or cancellations. It ensures that all related data is accurately updated, maintaining system integrity.
+
+Flow Chart Description
+Start:
+
+Entry point of the process.
+Check if Transaction ID Contains 'retry':
+
+Decision Node:
+Yes: Insert/update resubmit order collection.
+No: Continue with existing flow.
+Insert into Resubmit Order Collection:
+
+Action Node: Insert the resubmit transaction ID with status "OPEN."
+Update Transaction Info Collection:
+
+Action Node: Insert the resubmit transaction ID with status "RESUBMIT."
+Update Original Transaction Status:
+
+Action Node: Update the original transaction ID status to "Resubmit for approval."
+Generate Ticket for Approval:
+
+Action Node: Generate a ticket for the approver.
+Approver Decision:
+
+Decision Node: Approver can approve, reject, or cancel.
+Approval:
+Update resubmit order status to "APPROVED."
+Update resubmit transaction status to "RETRY."
+Update original transaction status to "RESUBMIT_FOR_DORMANT."
+Rejection:
+Update resubmit order status to "REJECTED."
+Update resubmit transaction status to "REJECTED."
+Update original transaction status to "FAILURE."
+Cancellation:
+Update resubmit order status to "CANCELLED."
+Update resubmit transaction status to "CANCELLED."
+Update original transaction status to "FAILURE."
+End:
+
+Process concludes after all updates are made.
+I will now generate the visual flowchart based on this description.
+
+
+
+I’ve created the flowchart for the enhanced resubmit process based on your updated requirements. The flowchart visually represents the steps and decision points in the process. If you need any further adjustments or additional details, let me know!
+
+
+
+
+
+
+You said:
+sequence diagarm 
+
+ChatGPT said:
+ChatGPT
+Memory updated
+Here’s a detailed sequence diagram for the resubmit process based on the requirements you provided:
+
+Sequence Diagram Description
+Actors:
+
+User/Client: Initiates the process.
+Transaction System: Checks the transaction ID and performs necessary actions.
+Resubmit Order Collection: Stores and updates the resubmit orders.
+Transaction Info Collection: Stores transaction details and statuses.
+Approver: Reviews and approves/rejects/cancels the resubmit ticket.
+Steps:
+
+User/Client sends a request to the Transaction System with a transaction ID.
+Transaction System checks if the transaction ID contains the string "retry."
+Condition Check: If the transaction ID contains "retry":
+Transaction System sends an Insert request to the Resubmit Order Collection to insert the resubmit transaction ID details.
+Resubmit Order Collection confirms the insertion.
+Transaction System sends an Insert request to the Transaction Info Collection to insert the resubmit transaction ID with the status "RESUBMIT."
+Transaction Info Collection confirms the insertion.
+Transaction System updates the original transaction status from "FAILURE" to "Resubmit for approval."
+Transaction System generates a ticket and notifies the Approver.
+Approver reviews the resubmit request and makes a decision:
+If Approved:
+Approver sends an approval back to the Transaction System.
+Transaction System updates the resubmit order status from "OPEN" to "APPROVED" in the Resubmit Order Collection.
+Resubmit Order Collection confirms the update.
+Transaction System updates the resubmit transaction status from "RESUBMIT" to "RETRY" in the Transaction Info Collection.
+Transaction Info Collection confirms the update.
+Transaction System updates the original transaction status from "Resubmit_for_approval" to "RESUBMIT_FOR_DORMANT."
+If Rejected:
+Approver sends a rejection back to the Transaction System.
+Transaction System updates the resubmit order status from "OPEN" to "REJECTED" in the Resubmit Order Collection.
+Resubmit Order Collection confirms the update.
+Transaction System updates the resubmit transaction status from "RESUBMIT" to "REJECTED" in the Transaction Info Collection.
+Transaction Info Collection confirms the update.
+Transaction System updates the original transaction status from "Resubmit_for_approval" to "FAILURE."
+If Cancelled:
+Approver sends a cancellation back to the Transaction System.
+Transaction System updates the resubmit order status from "OPEN" to "CANCELLED" in the Resubmit Order Collection.
+Resubmit Order Collection confirms the update.
+Transaction System updates the resubmit transaction status from "RESUBMIT" to "CANCELLED" in the Transaction Info Collection.
+Transaction Info Collection confirms the update.
+Transaction System updates the original transaction status from "Resubmit_for_approval" to "FAILURE."
+Condition Check: If the transaction ID does not contain "retry":
+Transaction System continues with the existing flow.
+I will now generate the sequence diagram based on this description.
+
+
