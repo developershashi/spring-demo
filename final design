@@ -1,0 +1,53 @@
+Start
+
+Begin the process.
+Check Transaction ID
+
+Decision Point: Determine if the transaction ID contains the string "retry" and if the original transaction status is "FAILURE."
+Yes: Proceed with the resubmit process.
+No: Continue with the existing transaction flow.
+Resubmit Process (If "retry" Present)
+
+Step 1: Insert Record into Transaction_Info Collection
+Insert a new record with the resubmit transaction ID details and set the status to "RESUBMIT."
+Step 2: Update Original Transaction Status
+Update the original transaction ID status from "FAILURE" to "Resubmit for approval."
+Step 3: Generate Ticket for Approver
+Generate a ticket for the approver to either approve, reject, or cancel the resubmit request.
+Approver Decision
+
+Decision Point: Approver can either approve, reject, or cancel the resubmit request.
+Approved:
+Update Resubmit Order Collection:
+Update the resubmit order status from "OPEN" to "APPROVED."
+Update Resubmit Transaction Status:
+Update the resubmit transaction ID status from "RESUBMIT" to "RETRY."
+Update Original Transaction Status:
+Update the original transaction ID status from "Resubmit for approval" to "RESUBMIT_FOR_DORMANT."
+Rejected:
+Update Resubmit Order Collection:
+Update the resubmit order status from "OPEN" to "REJECTED."
+Update Resubmit Transaction Status:
+Update the resubmit transaction ID status from "RESUBMIT" to "REJECTED."
+Update Original Transaction Status:
+Update the original transaction ID status from "Resubmit for approval" to "FAILURE."
+Cancelled:
+Update Resubmit Order Collection:
+Update the resubmit order status from "OPEN" to "CANCELLED."
+Update Resubmit Transaction Status:
+Update the resubmit transaction ID status from "RESUBMIT" to "CANCELLED."
+Update Original Transaction Status:
+Update the original transaction ID status from "Resubmit for approval" to "FAILURE."
+End
+
+The process ends after updating the necessary records.
+Key Considerations
+Validation: Ensure that the transaction ID contains "retry" and the original transaction status is "FAILURE" before starting the resubmit process.
+Database Operations: The flow involves creating or updating records in both the Resubmit Order Collection and Transaction_Info Collection depending on the outcome of the resubmit process.
+Status Updates: The status of both the original transaction and the resubmit transaction is carefully managed based on the approver's decision.
+This flow ensures clarity and handles each possible outcome efficiently, maintaining data consistency throughout the resubmit process.
+
+
+
+
+
