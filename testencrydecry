@@ -1,0 +1,87 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+class GpsRequestEncryptionServiceTest {
+
+    @Autowired
+    private GpsRequestEncryptionService encryptionService;
+
+    private GpsRequest testRequest;
+    private String credRef;
+
+    @BeforeEach
+    void setUp() {
+        credRef = "test-credRef"; // Mock credential reference
+        testRequest = new GpsRequest();
+        testRequest.setJsonObject("{ \"name\": \"John Doe\", \"accountNumber\": \"123456\" }"); // Mock data
+    }
+
+    @Test
+    void testEncryptObjectDataGuard_Success() throws Exception {
+        // Encrypt the GpsRequest object
+        String encryptedData = encryptionService.encryptObjectDataGuard(testRequest, credRef);
+
+        // Assert that the encrypted data is not null or empty
+        assertNotNull(encryptedData);
+        assertFalse(encryptedData.isEmpty());
+    }
+
+    @Test
+    void testEncryptObjectDataGuard_Failure() {
+        // Test with null request to trigger an exception
+        assertThrows(Exception.class, () -> encryptionService.encryptObjectDataGuard(null, credRef));
+    }
+}
+
+
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+class GpsRequestDecryptionServiceTest {
+
+    @Autowired
+    private GpsRequestDecryptionService decryptionService;
+
+    @Autowired
+    private GpsRequestEncryptionService encryptionService;
+
+    private GpsRequest testRequest;
+    private String credRef;
+
+    @BeforeEach
+    void setUp() {
+        credRef = "test-credRef"; // Mock credential reference
+        testRequest = new GpsRequest();
+        testRequest.setJsonObject("{ \"name\": \"John Doe\", \"accountNumber\": \"123456\" }"); // Mock data
+    }
+
+    @Test
+    void testDecryptObjectDataGuard_Success() throws Exception {
+        // First, encrypt the object
+        String encryptedData = encryptionService.encryptObjectDataGuard(testRequest, credRef);
+
+        // Now decrypt the encrypted data
+        GpsRequest decryptedRequest = decryptionService.decryptObjectDataGuard(encryptedData, credRef);
+
+        // Assert that the decrypted object matches the original
+        assertNotNull(decryptedRequest);
+        assertEquals(testRequest.getJsonObject(), decryptedRequest.getJsonObject());
+    }
+
+    @Test
+    void testDecryptObjectDataGuard_Failure() {
+        // Test with invalid encrypted data
+        assertThrows(Exception.class, () -> decryptionService.decryptObjectDataGuard("invalidData", credRef));
+    }
+}
