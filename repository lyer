@@ -1,0 +1,11 @@
+@Repository
+public interface TransactionInfoRepository extends MongoRepository<TransactionInfo, String> {
+    Optional<TransactionInfo> findByTransactionId(String transactionId);
+    boolean existsByTransactionId(String transactionId);
+}
+
+@Repository
+public interface ResubmitOrderRepository extends MongoRepository<ResubmitOrder, String> {
+    Optional<ResubmitOrder> findOpenOrderByDate(LocalDate date);
+    Optional<ResubmitOrder> findOpenDuplicateOrder();
+}
