@@ -1,0 +1,42 @@
+import java.time.LocalDateTime;
+
+public class ResubmitGpsRequest {
+
+    private String transactionId;
+    private String originalTransactionId;
+    private LocalDateTime resubmitDateTime;
+    private Object gpsRequest;  // Assuming gpsRequest is a flexible object
+
+    // Getters and Setters
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public String getOriginalTransactionId() {
+        return originalTransactionId;
+    }
+
+    public void setOriginalTransactionId(String originalTransactionId) {
+        this.originalTransactionId = originalTransactionId;
+    }
+
+    public LocalDateTime getResubmitDateTime() {
+        return resubmitDateTime;
+    }
+
+    public void setResubmitDateTime(LocalDateTime resubmitDateTime) {
+        this.resubmitDateTime = resubmitDateTime;
+    }
+
+    public Object getGpsRequest() {
+        return gpsRequest;
+    }
+
+    public void setGpsRequest(Object gpsRequest) {
+        this.gpsRequest = gpsRequest;
+    }
+}
