@@ -1,0 +1,41 @@
+@Transactional
+private void processResubmit(String transactionId, TransactionInfo originalTransaction) {
+    try {
+        if (transactionInfoRepository.existsByTransactionId(transactionId)) {
+            createDuplicateResubmitOrder(transactionId);
+        } else {
+            updateOriginalTransactionStatus(originalTransaction, "RESUBMIT_FOR_APPROVAL");
+            createOrAppendResubmitOrder(transactionId, originalTransaction);
+        }
+    } catch (Exception e) {
+        LOGGER.error("Error during resubmit process for transactionId: {}", transactionId, e);
+        throw new ResubmitProcessException("Failed to resubmit transaction", e);
+    }
+}
+
+private void updateOriginalTransactionStatus(TransactionInfo originalTransaction, String status) {
+    originalTransaction.setStatus(status);
+    transactionInfoRepository.save(originalTransaction);  // Save only after modification is certain
+}
+
+private void createOrAppendResubmitOrder(String transactionId, TransactionInfo originalTransaction) {
+    LocalDate today = LocalDate.now();
+    ResubmitOrder resubmitOrder = resubmitOrderRepository.findOpenOrderByDate(today)
+            .orElseGet(() -> createNewResubmitOrder());
+
+    ResubmitGpsRequest gpsRequest = new ResubmitGpsRequest();
+    gpsRequest.setTransactionId(transactionId);
+    gpsRequest.setOriginalTransactionId(originalTransaction.getTransactionId());
+    gpsRequest.setResubmitDateTime(LocalDateTime.now());
+
+    resubmitOrder.addGpsRequest(gpsRequest);
+    resubmitOrderRepository.save(resubmitOrder);  // Only save when needed
+}
+
+private ResubmitOrder createNewResubmitOrder() {
+    ResubmitOrder newOrder = new ResubmitOrder();
+    newOrder.setOrderId(UUID.randomUUID().toString());
+    newOrder.setStatus("OPEN");
+    newOrder.setCreatedAt(LocalDateTime.now());
+    return newOrder;
+}
