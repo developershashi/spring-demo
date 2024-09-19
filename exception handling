@@ -1,0 +1,11 @@
+public class TransactionNotFoundException extends RuntimeException {
+    public TransactionNotFoundException(String message) {
+        super(message);
+    }
+}
+
+public class ResubmitProcessException extends RuntimeException {
+    public ResubmitProcessException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
