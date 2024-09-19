@@ -1,0 +1,24 @@
+private void createInvalidResubmitOrder(String transactionId, TransactionInfo originalTransaction) {
+    LOGGER.info("Creating INVALID resubmit order for transactionId: {}", transactionId);
+
+    ResubmitOrder invalidOrder = new ResubmitOrder();
+    invalidOrder.setTransactionId(transactionId);
+    invalidOrder.setStatus("INVALID");
+    invalidOrder.setComments("Original transaction status was not FAILURE");
+    invalidOrder.setCreatedAt(LocalDateTime.now());
+
+    resubmitOrderRepository.save(invalidOrder);  // Efficient and clear save operation
+}
+
+private void createDuplicateResubmitOrder(String transactionId) {
+    LOGGER.info("Creating DUPLICATE resubmit order for transactionId: {}", transactionId);
+
+    ResubmitOrder duplicateOrder = resubmitOrderRepository.findOpenDuplicateOrder()
+            .orElseGet(() -> createNewResubmitOrder());
+
+    duplicateOrder.setStatus("DUPLICATE");
+    duplicateOrder.setComments("Duplicate transaction ID exists");
+    duplicateOrder.setUpdatedAt(LocalDateTime.now());
+
+    resubmitOrderRepository.save(duplicateOrder);
+}
