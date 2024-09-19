@@ -1,0 +1,55 @@
+@Service
+public class ResubmitService {
+
+    @Autowired
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Autowired
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResubmitService.class);
+
+    public void processTransaction(String transactionId) {
+        try {
+            validateTransactionId(transactionId);
+
+            boolean isRetryTransaction = transactionId.contains("retry");
+            String originalTransactionId = getOriginalTransactionId(transactionId);
+
+            TransactionInfo originalTransaction = transactionInfoRepository.findByTransactionId(originalTransactionId)
+                    .orElseThrow(() -> new TransactionNotFoundException("Original transaction not found: " + originalTransactionId));
+
+            if (isRetryTransaction) {
+                handleRetryTransaction(transactionId, originalTransaction);
+            } else {
+                continueWithExistingFlow(transactionId);
+            }
+
+        } catch (TransactionNotFoundException e) {
+            LOGGER.error("Error: {}", e.getMessage());
+            throw new ResubmitProcessException("Failed to process resubmit request", e);
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error while processing transaction: {}", transactionId, e);
+            throw new ResubmitProcessException("Unexpected error occurred", e);
+        }
+    }
+
+    private void validateTransactionId(String transactionId) {
+        if (transactionId == null || transactionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Transaction ID cannot be null or empty");
+        }
+    }
+
+    private String getOriginalTransactionId(String transactionId) {
+        // Assuming retry IDs append "retry" to original ID
+        return transactionId.replace("retry", "").trim();
+    }
+
+    private void handleRetryTransaction(String transactionId, TransactionInfo originalTransaction) {
+        if ("FAILURE".equals(originalTransaction.getStatus())) {
+            processResubmit(transactionId, originalTransaction);
+        } else {
+            createInvalidResubmitOrder(transactionId, originalTransaction);
+        }
+    }
+}
