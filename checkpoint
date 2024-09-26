@@ -1,0 +1,106 @@
+@Service
+public class ResubmitOrderService {
+
+    @Autowired
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @Autowired
+    private TransactionInfoRepository transactionInfoRepository;
+
+    /**
+     * Main method to handle resubmit order creation or invalidation based on transaction validation.
+     *
+     * @param gpsRequest The GPS request object containing transaction details.
+     */
+    @Transactional
+    public void handleResubmitOrder(GpsRequest gpsRequest) {
+        String originalTransactionId = gpsRequest.getOriginalTransactionId();
+
+        // Step 1: Check for the latest FAILURE transaction in the transactioninfo collection
+        Optional<TransactionInfo> latestFailureTransaction = getLatestFailureTransaction(originalTransactionId);
+
+        if (latestFailureTransaction.isPresent()) {
+            // If a latest FAILURE transaction is found, proceed with the resubmit process
+            processResubmit(gpsRequest, latestFailureTransaction.get());
+        } else {
+            // If no FAILURE transaction is found, create invalid resubmit order and transaction info
+            createInvalidResubmitOrder(gpsRequest);
+            createInvalidTransactionInfo(gpsRequest);
+        }
+    }
+
+    /**
+     * Fetches the latest transaction with FAILURE status for the given originalTransactionId.
+     *
+     * @param originalTransactionId The original transaction ID to search for.
+     * @return Optional of the latest TransactionInfo with FAILURE status.
+     */
+    private Optional<TransactionInfo> getLatestFailureTransaction(String originalTransactionId) {
+        // Query to find the latest transaction with FAILURE status
+        return transactionInfoRepository.findFirstByOriginalTransactionIdAndStatusOrderByModifiedAtDesc(
+                originalTransactionId, "FAILURE");
+    }
+
+    /**
+     * Processes the resubmit request when a valid FAILURE transaction is found.
+     *
+     * @param gpsRequest The GPS request object containing transaction details.
+     * @param transactionInfo The latest FAILURE transaction info.
+     */
+    private void processResubmit(GpsRequest gpsRequest, TransactionInfo transactionInfo) {
+        // Implement the logic to process the resubmit request
+        System.out.println("Processing resubmit for transaction: " + transactionInfo.getTransactionId());
+        // TODO: Implement resubmit processing logic here
+    }
+
+    /**
+     * Creates a new resubmit order with status INVALID.
+     *
+     * @param gpsRequest The GPS request object containing transaction details.
+     */
+    private void createInvalidResubmitOrder(GpsRequest gpsRequest) {
+        ResubmitOrder invalidOrder = new ResubmitOrder();
+        invalidOrder.setOrderId(generateOrderId());
+        invalidOrder.setFeedType("PAYMENT");
+        invalidOrder.setStatus("INVALID");
+        invalidOrder.setCreatedAt(LocalDateTime.now());
+        invalidOrder.setUpdatedAt(LocalDateTime.now());
+
+        ResubmitGpsRequest resubmitGpsRequest = new ResubmitGpsRequest();
+        resubmitGpsRequest.setGpsRequest(gpsRequest);
+        resubmitGpsRequest.setReviewedBy("kerberos");
+        resubmitGpsRequest.setComments("Status was not FAILURE. Marked as INVALID.");
+
+        invalidOrder.setResubmitGpsRequest(List.of(resubmitGpsRequest));
+        resubmitOrderRepository.save(invalidOrder);
+
+        System.out.println("Created INVALID resubmit order for transaction ID: " + gpsRequest.getTransactionId());
+    }
+
+    /**
+     * Creates an invalid entry in the transactioninfo collection.
+     *
+     * @param gpsRequest The GPS request object containing transaction details.
+     */
+    private void createInvalidTransactionInfo(GpsRequest gpsRequest) {
+        TransactionInfo invalidTransaction = new TransactionInfo();
+        invalidTransaction.setTransactionId(gpsRequest.getTransactionId());
+        invalidTransaction.setOriginalTransactionId(gpsRequest.getOriginalTransactionId());
+        invalidTransaction.setStatus("INVALID");
+        invalidTransaction.setModifiedAt(LocalDateTime.now());
+
+        // Assuming there's a repository method to save TransactionInfo
+        transactionInfoRepository.save(invalidTransaction);
+
+        System.out.println("Created INVALID transaction info for transaction ID: " + gpsRequest.getTransactionId());
+    }
+
+    /**
+     * Utility method to generate a unique order ID (for demonstration purposes).
+     *
+     * @return Generated unique order ID.
+     */
+    private String generateOrderId() {
+        return "ORD-" + System.currentTimeMillis();  // Example: Simple timestamp-based ID
+    }
+}
