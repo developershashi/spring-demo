@@ -1,0 +1,9 @@
+ private ResubmitGpsRequest createResubmitGpsRequest(GpsRequest gpsRequest, String comments) {
+        ResubmitGpsRequest resubmitGpsRequest = new ResubmitGpsRequest();
+        resubmitGpsRequest.setTransactionId(gpsRequest.getTransactionId());
+        resubmitGpsRequest.setOriginalTransactionId(gpsRequest.getOriginalTransactionId());
+        resubmitGpsRequest.setResubmitDateTime(LocalDateTime.now());
+        resubmitGpsRequest.setGpsRequest(gpsRequest);
+        resubmitGpsRequest.setComments(comments);
+        return resubmitGpsRequest;
+    }
