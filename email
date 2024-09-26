@@ -1,0 +1,24 @@
+import org.apache.camel.builder.RouteBuilder;
+import org.springframework.stereotype.Component;
+
+@Component
+public class ResubmitNotificationRoute extends RouteBuilder {
+
+    @Override
+    public void configure() throws Exception {
+
+        // Route for sending notification when a resubmit order is marked as INVALID
+        from("direct:sendInvalidResubmitNotification")
+            .routeId("sendInvalidResubmitNotification")
+            .setHeader("subject", simple("Resubmit Request Marked as INVALID - Transaction ID: ${header.transactionId}"))
+            .setBody(simple("The resubmit request for Transaction ID: ${header.transactionId} has been marked as INVALID. Reason: Status was not FAILURE."))
+            .to("smtp://smtp.example.com?username=user&password=secret"); // Update SMTP details
+
+        // Route for sending notification when a resubmit order is marked as DUPLICATE
+        from("direct:sendDuplicateResubmitNotification")
+            .routeId("sendDuplicateResubmitNotification")
+            .setHeader("subject", simple("Resubmit Request Marked as DUPLICATE - Transaction ID: ${header.transactionId}"))
+            .setBody(simple("The resubmit request for Transaction ID: ${header.transactionId} has been marked as DUPLICATE. Reason: Duplicate ID exists."))
+            .to("smtp://smtp.example.com?username=user&password=secret"); // Update SMTP details
+    }
+}
