@@ -1,0 +1,17 @@
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface TransactionInfoRepository extends MongoRepository<TransactionInfo, String> {
+
+    // Custom query to find the latest FAILURE transaction based on the originalTransactionId and status.
+    // This query sorts the results by modifiedAt in descending order and returns the first match.
+    @Query("{ 'originalTransactionId': ?0, 'status': 'FAILURE' }")
+    Optional<TransactionInfo> findFirstByOriginalTransactionIdAndStatusOrderByModifiedAtDesc(String originalTransactionId);
+
+    // If you need a method to find all records based on originalTransactionId, you can use this:
+    List<TransactionInfo> findByOriginalTransactionId(String originalTransactionId);
+}
