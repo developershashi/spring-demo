@@ -1,0 +1,189 @@
+package com.example.resubmit;
+
+import org.apache.camel.Exchange;
+import org.apache.commons.lang3.ObjectUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+public class ResubmitProcessor {
+
+    @Autowired
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Autowired
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResubmitProcessor.class);
+
+    private void validateTransactionId(String transactionId) {
+        if (transactionId == null || transactionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Transaction ID cannot be null or empty");
+        }
+    }
+
+    private String getOriginalTransactionId(String transactionId) {
+        // Assuming retry IDs append "retry" to the original ID
+        return transactionId.replace("retry", "").replace(" ", "").trim();
+    }
+
+    public void handleRetryTransaction(String transactionId, GpsRequest newGpsRequest, String fileName) {
+        try {
+            validateTransactionId(transactionId);
+            String originalTransactionId = getOriginalTransactionId(transactionId);
+            // Check for the latest FAILURE transaction in the transaction info collection
+            Optional<TransactionInfo> latestFailureTransaction = getLatestFailureTransaction(originalTransactionId);
+
+            if (latestFailureTransaction.isPresent()) {
+                processResubmit(transactionId, newGpsRequest, latestFailureTransaction.get(), fileName);
+            } else {
+                createInvalidResubmitOrder(transactionId, newGpsRequest, originalTransactionId, fileName);
+                createInvalidTransactionInfo(newGpsRequest, fileName);
+                throw new InvalidDuplicateResubmitException("The resubmit request for Transaction ID: " 
+                        + transactionId + " has been marked as INVALID. Reason: Status was not FAILURE.");
+            }
+        } catch (TransactionNotFoundException e) {
+            LOGGER.error("Error: {}", e.getMessage());
+            throw new ResubmitProcessException("Failed to process resubmit request", e);
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error while processing transaction: {}", transactionId, e);
+            throw new ResubmitProcessException("Unexpected error occurred", e);
+        }
+    }
+
+    private Optional<TransactionInfo> getLatestFailureTransaction(String transactionId) {
+        // Retrieve the latest FAILURE transaction from the transaction info repository
+        return transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(transactionId);
+    }
+
+    @Transactional
+    public void processResubmit(String transactionId, GpsRequest newGpsRequest, 
+                                TransactionInfo originalTransaction, String fileName) {
+        try {
+            if (transactionInfoRepository.existsByTransactionId(transactionId)) {
+                createDuplicateResubmitOrder(transactionId, newGpsRequest, originalTransaction.getTransactionId(), fileName);
+                createDuplicateTransactionInfo(newGpsRequest, fileName);
+                throw new InvalidDuplicateResubmitException("The resubmit request for Transaction ID: "
+                        + transactionId + " has been marked as DUPLICATE. Reason: Duplicate ID exists.");
+            } else {
+                updateOriginalTransactionStatus(originalTransaction, "RESUBMIT_FOR_APPROVAL");
+                createOrAppendResubmitOrder(transactionId, newGpsRequest, originalTransaction.getTransactionId(), fileName);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error during resubmit process for transactionId: {}", transactionId, e);
+            throw new ResubmitProcessException("Failed to resubmit transaction", e);
+        }
+    }
+
+    private void updateOriginalTransactionStatus(TransactionInfo originalTransaction, String status) {
+        originalTransaction.setTransactionStatus(status);
+        transactionInfoRepository.save(originalTransaction);
+    }
+
+    private void createOrAppendResubmitOrder(String transactionId, GpsRequest newGpsRequest, 
+                                             String originalTransactionId, String fileName) {
+        LocalDate today = LocalDate.now();
+        ResubmitOrder resubmitOrder = resubmitOrderRepository.findOpenOrderByDate(today)
+                .orElseGet(this::createNewResubmitOrder);
+
+        resubmitOrder.setFeedType("ACU");
+        resubmitOrder.setUpdatedAt(LocalDateTime.now());
+        ResubmitGpsRequest resubmitGpsRequest = createResubmitGpsRequest(transactionId, newGpsRequest, 
+                originalTransactionId, fileName);
+        resubmitOrder.getResubmitGpsRequests().add(resubmitGpsRequest);
+        resubmitOrderRepository.save(resubmitOrder);
+    }
+
+    private ResubmitOrder createNewResubmitOrder() {
+        ResubmitOrder newOrder = new ResubmitOrder();
+        newOrder.setOrderId(UUID.randomUUID().toString());
+        newOrder.setStatus("OPEN");
+        newOrder.setCreatedAt(LocalDateTime.now());
+        return newOrder;
+    }
+
+    private void createInvalidResubmitOrder(String transactionId, GpsRequest newGpsRequest, 
+                                            String originalTransactionId, String fileName) {
+        LOGGER.info("Creating INVALID resubmit order for transactionId: {}", transactionId);
+        LocalDate today = LocalDate.now();
+        ResubmitOrder invalidOrder = resubmitOrderRepository.findInvalidOrderByDate(today)
+                .orElseGet(this::createNewResubmitOrder);
+
+        invalidOrder.setStatus("INVALID");
+        invalidOrder.setFeedType("ACU");
+        invalidOrder.setComments("Original transaction status was not FAILURE");
+        invalidOrder.setUpdatedAt(LocalDateTime.now());
+        ResubmitGpsRequest resubmitGpsRequest = createResubmitGpsRequest(transactionId, newGpsRequest, 
+                originalTransactionId, fileName);
+        invalidOrder.getResubmitGpsRequests().add(resubmitGpsRequest);
+        resubmitOrderRepository.save(invalidOrder);
+    }
+
+    private void createDuplicateResubmitOrder(String transactionId, GpsRequest newGpsRequest, 
+                                              String originalTransactionId, String fileName) {
+        LOGGER.info("Creating DUPLICATE resubmit order for transactionId: {}", transactionId);
+        LocalDate today = LocalDate.now();
+        ResubmitOrder duplicateOrder = resubmitOrderRepository.findDuplicateOrderByDate(today)
+                .orElseGet(this::createNewResubmitOrder);
+
+        duplicateOrder.setStatus("DUPLICATE");
+        duplicateOrder.setComments("Duplicate transaction ID exists");
+        duplicateOrder.setUpdatedAt(LocalDateTime.now());
+        duplicateOrder.setFeedType("ACU");
+        ResubmitGpsRequest resubmitGpsRequest = createResubmitGpsRequest(transactionId, newGpsRequest, 
+                originalTransactionId, fileName);
+        duplicateOrder.getResubmitGpsRequests().add(resubmitGpsRequest);
+        resubmitOrderRepository.save(duplicateOrder);
+    }
+
+    private ResubmitGpsRequest createResubmitGpsRequest(String transactionId, GpsRequest newGpsRequest, 
+                                                        String originalTransactionId, String fileName) {
+        ResubmitGpsRequest resubmitGpsRequest = new ResubmitGpsRequest();
+        resubmitGpsRequest.setTransactionId(transactionId);
+        resubmitGpsRequest.setOriginalTransactionId(originalTransactionId);
+        resubmitGpsRequest.setResubmitDateTime(LocalDateTime.now());
+        resubmitGpsRequest.setResubmitFileName(fileName);
+        resubmitGpsRequest.setGpsRequest(newGpsRequest);
+        return resubmitGpsRequest;
+    }
+
+    private void createInvalidTransactionInfo(GpsRequest newGpsRequest, String fileName) {
+        transactionInfoRepository.save(
+                AppUtils.buildTransactionInfo(newGpsRequest, fileName, "ACU", "INVALID"));
+    }
+
+    private void createDuplicateTransactionInfo(GpsRequest newGpsRequest, String fileName) {
+        transactionInfoRepository.save(
+                AppUtils.buildTransactionInfo(newGpsRequest, fileName, "ACU", "DUPLICATE"));
+    }
+
+    public void transactionProcess(Exchange exchange) {
+        GpsRequest gpsRequest = exchange.getIn().getBody(GpsRequest.class);
+        String fileName = exchange.getIn().getHeader(Exchange.FILE_NAME, String.class);
+
+        if (ObjectUtils.isEmpty(fileName) || ObjectUtils.isEmpty(gpsRequest)) {
+            LOGGER.error("Empty Data Found for ACU..!! isFileNameEmpty: {} isGpsRequestEmpty: {}", 
+                    ObjectUtils.isEmpty(fileName), ObjectUtils.isEmpty(gpsRequest));
+            return;
+        }
+
+        String transactionId = gpsRequest.getCashMovementModel().getSourceReference();
+        boolean isRetryTransaction = transactionId.contains("retry");
+
+        if (isRetryTransaction) {
+            handleRetryTransaction(transactionId, gpsRequest, fileName);
+        } else {
+            upsertAcuTransactionInfo(exchange);
+        }
+    }
+
+    // Implement upsertAcuTransactionInfo and other missing methods as needed.
+}
