@@ -1,0 +1,165 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.slf4j.Logger;
+import org.springframework.dao.EmptyResultDataAccessException;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+class ResubmitProcessorTest {
+
+    @InjectMocks
+    private ResubmitProcessor resubmitProcessor; // Service under test
+
+    @Mock
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Mock
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @Mock
+    private Logger logger;
+
+    @Mock
+    private GpsRequest gpsRequest;
+
+    @Mock
+    private TransactionInfo transactionInfo;
+
+    @Mock
+    private ResubmitOrder resubmitOrder;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this); // Initialize mocks
+    }
+
+    @Test
+    void handleRetryTransaction_WithValidFailureTransaction_CallsProcessResubmit() {
+        // Setup
+        String transactionId = "retryTransactionId";
+        String originalTransactionId = "originalTransactionId";
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(anyString()))
+                .thenReturn(Optional.of(transactionInfo));
+
+        // Call method under test
+        resubmitProcessor.handleRetryTransaction(transactionId, gpsRequest, "fileName");
+
+        // Verify the processResubmit is called
+        verify(transactionInfoRepository).findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(originalTransactionId);
+    }
+
+    @Test
+    void handleRetryTransaction_WithNoFailureTransaction_CreatesInvalidResubmit() {
+        // Setup
+        String transactionId = "retryTransactionId";
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(anyString()))
+                .thenReturn(Optional.empty());
+
+        // Call method under test
+        assertThrows(InvalidDuplicateResubmitException.class, () -> 
+            resubmitProcessor.handleRetryTransaction(transactionId, gpsRequest, "fileName")
+        );
+
+        // Verify Invalid methods are called
+        verify(resubmitOrderRepository).findInvalidOrderByDate(any());
+        verify(transactionInfoRepository).save(any());
+    }
+
+    @Test
+    void processResubmit_WhenTransactionExists_CreatesDuplicateResubmit() {
+        // Setup
+        String transactionId = "transactionId";
+        when(transactionInfoRepository.existsByTransactionId(transactionId)).thenReturn(true);
+
+        // Call method under test
+        assertThrows(InvalidDuplicateResubmitException.class, () -> 
+            resubmitProcessor.processResubmit(transactionId, gpsRequest, transactionInfo, "fileName")
+        );
+
+        // Verify Duplicate methods are called
+        verify(resubmitOrderRepository).findDuplicateOrderByDate(any());
+        verify(transactionInfoRepository).save(any());
+    }
+
+    @Test
+    void processResubmit_WhenTransactionDoesNotExist_UpdatesTransactionAndCreatesResubmitOrder() {
+        // Setup
+        String transactionId = "transactionId";
+        when(transactionInfoRepository.existsByTransactionId(transactionId)).thenReturn(false);
+        when(resubmitOrderRepository.findOpenOrderByDate(any())).thenReturn(Optional.of(resubmitOrder));
+
+        // Call method under test
+        resubmitProcessor.processResubmit(transactionId, gpsRequest, transactionInfo, "fileName");
+
+        // Verify update and createOrAppendResubmitOrder are called
+        verify(transactionInfoRepository).save(any());
+        verify(resubmitOrderRepository).save(resubmitOrder);
+    }
+
+    @Test
+    void createOrAppendResubmitOrder_WithExistingOpenOrder_AppendsRequest() {
+        // Setup
+        when(resubmitOrderRepository.findOpenOrderByDate(any())).thenReturn(Optional.of(resubmitOrder));
+
+        // Call method under test
+        resubmitProcessor.createOrAppendResubmitOrder("transactionId", gpsRequest, "originalTransactionId", "fileName");
+
+        // Verify resubmitOrder is updated and saved
+        verify(resubmitOrder).setUpdatedAt(any());
+        verify(resubmitOrderRepository).save(resubmitOrder);
+    }
+
+    @Test
+    void createNewResubmitOrder_ReturnsNewOrder() {
+        // Setup
+        when(resubmitOrderRepository.save(any())).thenReturn(resubmitOrder);
+
+        // Call method under test
+        ResubmitOrder newOrder = resubmitProcessor.createNewResubmitOrder();
+
+        // Verify new order fields are set
+        verify(resubmitOrderRepository).save(any());
+        assertNotNull(newOrder.getOrderId());
+        assertEquals("OPEN", newOrder.getStatus());
+    }
+
+    @Test
+    void createInvalidResubmitOrder_AppendsRequestToInvalidOrder() {
+        // Setup
+        when(resubmitOrderRepository.findInvalidOrderByDate(any())).thenReturn(Optional.of(resubmitOrder));
+
+        // Call method under test
+        resubmitProcessor.createInvalidResubmitOrder("transactionId", gpsRequest, "originalTransactionId", "fileName");
+
+        // Verify invalid order is updated and saved
+        verify(resubmitOrder).setStatus("INVALID");
+        verify(resubmitOrder).setUpdatedAt(any());
+        verify(resubmitOrderRepository).save(resubmitOrder);
+    }
+
+    @Test
+    void createDuplicateResubmitOrder_AppendsRequestToDuplicateOrder() {
+        // Setup
+        when(resubmitOrderRepository.findDuplicateOrderByDate(any())).thenReturn(Optional.of(resubmitOrder));
+
+        // Call method under test
+        resubmitProcessor.createDuplicateResubmitOrder("transactionId", gpsRequest, "originalTransactionId", "fileName");
+
+        // Verify duplicate order is updated and saved
+        verify(resubmitOrder).setStatus("DUPLICATE");
+        verify(resubmitOrder).setUpdatedAt(any());
+        verify(resubmitOrderRepository).save(resubmitOrder);
+    }
+}
+
