@@ -1,0 +1,50 @@
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+@ExtendWith(MockitoExtension.class)
+public class ResubmitProcessorTest {
+
+    @Mock
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Mock
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @Spy
+    @InjectMocks
+    private ResubmitProcessor resubmitProcessor;
+
+    @Test
+    void testHandleRetryTransaction_InvalidTransaction_NoFailureStatus() {
+        // Arrange
+        GpsRequest mockGpsRequest = mock(GpsRequest.class);
+        String transactionId = "transaction123retry";
+        String fileName = "testFile.txt";
+
+        // Mocking the return value for the latest failure transaction
+        TransactionInfo mockTransactionInfo = new TransactionInfo();
+        mockTransactionInfo.setTransactionId("transaction123");
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any(), eq("FAILURE")))
+                .thenReturn(Optional.empty());
+
+        // Spy on the resubmitProcessor to mock private methods
+        doNothing().when(resubmitProcessor).createInvalidResubmitOrder(eq(transactionId), eq(mockGpsRequest), eq("transaction123"), eq(fileName));
+        doNothing().when(resubmitProcessor).createInvalidTransactionInfo(eq(mockGpsRequest), eq(fileName));
+
+        // Act & Assert
+        assertThrows(InvalidDuplicateResubmitException.class, () ->
+                resubmitProcessor.handleRetryTransaction(transactionId, mockGpsRequest, fileName)
+        );
+
+        // Verify that the private methods were called
+        verify(resubmitProcessor, times(1)).createInvalidResubmitOrder(transactionId, mockGpsRequest, "transaction123", fileName);
+        verify(resubmitProcessor, times(1)).createInvalidTransactionInfo(mockGpsRequest, fileName);
+    }
+}
