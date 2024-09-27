@@ -1,0 +1,156 @@
+package com.example.resubmit;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+import com.example.resubmit.exception.InvalidDuplicateResubmitException;
+import com.example.resubmit.exception.ResubmitProcessException;
+import com.example.resubmit.model.GpsRequest;
+import com.example.resubmit.model.ResubmitOrder;
+import com.example.resubmit.model.TransactionInfo;
+import com.example.resubmit.repository.ResubmitOrderRepository;
+import com.example.resubmit.repository.TransactionInfoRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+@ExtendWith(MockitoExtension.class)
+class ResubmitProcessorTest {
+
+    @Mock
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Mock
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @InjectMocks
+    private ResubmitProcessor resubmitProcessor;
+
+    private static final String VALID_TRANSACTION_ID = "transaction123";
+    private static final String RETRY_TRANSACTION_ID = "transaction123retry";
+    private static final String FILE_NAME = "testFile.txt";
+    private static final String DUPLICATE_ID = "duplicate123";
+
+    private GpsRequest gpsRequest;
+    private TransactionInfo transactionInfo;
+
+    @BeforeEach
+    void setUp() {
+        gpsRequest = new GpsRequest();
+        // Initialize gpsRequest fields as required
+
+        transactionInfo = new TransactionInfo();
+        transactionInfo.setTransactionId(VALID_TRANSACTION_ID);
+        transactionInfo.setTransactionStatus("FAILURE");
+        transactionInfo.setModifiedAt(LocalDateTime.now());
+    }
+
+    @Test
+    void testHandleRetryTransaction_ValidFailureTransaction() {
+        // Setup: Transaction with FAILURE status is found
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any()))
+                .thenReturn(Optional.of(transactionInfo));
+
+        // Execute
+        assertDoesNotThrow(() -> resubmitProcessor.handleRetryTransaction(RETRY_TRANSACTION_ID, gpsRequest, FILE_NAME));
+
+        // Verify
+        verify(transactionInfoRepository, times(1)).findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any());
+        verify(resubmitOrderRepository, times(1)).save(any(ResubmitOrder.class));
+    }
+
+    @Test
+    void testHandleRetryTransaction_InvalidTransaction_NoFailureStatus() {
+        // Setup: No FAILURE transaction found
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any()))
+                .thenReturn(Optional.empty());
+
+        // Execute and Verify
+        InvalidDuplicateResubmitException exception = assertThrows(InvalidDuplicateResubmitException.class,
+                () -> resubmitProcessor.handleRetryTransaction(RETRY_TRANSACTION_ID, gpsRequest, FILE_NAME));
+        assertTrue(exception.getMessage().contains("INVALID"));
+    }
+
+    @Test
+    void testProcessResubmit_DuplicateTransaction() {
+        // Setup: Duplicate transaction exists in the database
+        when(transactionInfoRepository.existsByTransactionId(RETRY_TRANSACTION_ID)).thenReturn(true);
+
+        // Execute and Verify
+        InvalidDuplicateResubmitException exception = assertThrows(InvalidDuplicateResubmitException.class,
+                () -> resubmitProcessor.processResubmit(RETRY_TRANSACTION_ID, gpsRequest, transactionInfo, FILE_NAME));
+        assertTrue(exception.getMessage().contains("DUPLICATE"));
+
+        // Verify correct handling
+        verify(resubmitOrderRepository, times(1)).save(any(ResubmitOrder.class));
+    }
+
+    @Test
+    void testProcessResubmit_NewTransaction_ValidProcessing() {
+        // Setup: No duplicate found, and processing should succeed
+        when(transactionInfoRepository.existsByTransactionId(RETRY_TRANSACTION_ID)).thenReturn(false);
+
+        // Execute
+        assertDoesNotThrow(() -> resubmitProcessor.processResubmit(RETRY_TRANSACTION_ID, gpsRequest, transactionInfo, FILE_NAME));
+
+        // Verify that the transaction status was updated and order saved
+        verify(transactionInfoRepository, times(1)).save(any(TransactionInfo.class));
+        verify(resubmitOrderRepository, times(1)).save(any(ResubmitOrder.class));
+    }
+
+    @Test
+    void testCreateOrAppendResubmitOrder_CreatesNewOrder() {
+        // Setup: No existing resubmit order found
+        when(resubmitOrderRepository.findOpenOrderByDate(any(LocalDate.class))).thenReturn(Optional.empty());
+
+        // Execute
+        resubmitProcessor.createOrAppendResubmitOrder(RETRY_TRANSACTION_ID, gpsRequest, VALID_TRANSACTION_ID, FILE_NAME);
+
+        // Verify
+        verify(resubmitOrderRepository, times(1)).save(any(ResubmitOrder.class));
+    }
+
+    @Test
+    void testCreateDuplicateResubmitOrder() {
+        // Setup: A new duplicate order should be created
+        when(resubmitOrderRepository.findDuplicateOrderByDate(any(LocalDate.class))).thenReturn(Optional.empty());
+
+        // Execute
+        resubmitProcessor.createDuplicateResubmitOrder(RETRY_TRANSACTION_ID, gpsRequest, VALID_TRANSACTION_ID, FILE_NAME);
+
+        // Verify
+        verify(resubmitOrderRepository, times(1)).save(any(ResubmitOrder.class));
+    }
+
+    @Test
+    void testTransactionProcess_RetryTransaction() {
+        // Execute transaction processing with retry logic
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any()))
+                .thenReturn(Optional.of(transactionInfo));
+
+        // Transaction processing logic that handles retry should work without throwing exceptions
+        assertDoesNotThrow(() -> resubmitProcessor.transactionProcess(mockExchange(RETRY_TRANSACTION_ID)));
+
+        // Verify
+        verify(transactionInfoRepository, times(1)).findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any());
+    }
+
+    // Mock Exchange for transactionProcess method
+    private Exchange mockExchange(String transactionId) {
+        Exchange exchange = mock(Exchange.class);
+        when(exchange.getIn().getBody(GpsRequest.class)).thenReturn(gpsRequest);
+        when(exchange.getIn().getHeader(Exchange.FILE_NAME, String.class)).thenReturn(FILE_NAME);
+        // Assume CashMovementModel is correctly set up in gpsRequest for testing
+        // Customize the mock as needed to fully simulate the exchange behavior
+        return exchange;
+    }
+}
