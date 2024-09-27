@@ -1,0 +1,28 @@
+@Test
+void testHandleRetryTransaction_ValidFailureTransaction() {
+    // Setup
+    Exchange mockExchange = mock(Exchange.class);
+    when(mockExchange.getIn().getBody(GpsRequest.class)).thenReturn(gpsRequest);
+    when(mockExchange.getIn().getHeader(Exchange.FILE_NAME, String.class)).thenReturn(FILE_NAME);
+    when(gpsRequest.getCashMovementModel().getSourceReference()).thenReturn(RETRY_TRANSACTION_ID);
+
+    TransactionInfo mockTransactionInfo = new TransactionInfo(); // Set up as needed
+    when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any(), eq("FAILURE")))
+            .thenReturn(Optional.of(mockTransactionInfo));
+
+    // Execute and verify no exceptions are thrown
+    assertDoesNotThrow(() -> resubmitProcessor.handleRetryTransaction(RETRY_TRANSACTION_ID, gpsRequest, FILE_NAME));
+
+    // Add additional verifications for repository calls if needed
+}
+
+@Test
+void testHandleRetryTransaction_InvalidTransaction_NoFailureStatus() {
+    // Setup mocks
+    when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(any(), eq("FAILURE")))
+            .thenReturn(Optional.empty());
+
+    // Execute and expect InvalidDuplicateResubmitException
+    assertThrows(InvalidDuplicateResubmitException.class, () ->
+            resubmitProcessor.handleRetryTransaction(RETRY_TRANSACTION_ID, gpsRequest, FILE_NAME));
+}
