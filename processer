@@ -1,0 +1,67 @@
+import org.apache.camel.Exchange;
+import org.apache.camel.Message;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+class TransactionProcessTest {
+
+    @InjectMocks
+    private YourServiceClass service; // Replace with the class where `transactionProcess` is implemented
+
+    @Mock
+    private Exchange exchange;
+
+    @Mock
+    private Message inMessage;
+
+    @Mock
+    private ResubmitService resubmitService; // Assuming this is the service class containing `handleRetryTransaction`
+
+    @Mock
+    private GpsRequest gpsRequest;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(exchange.getIn()).thenReturn(inMessage);
+    }
+
+    @Test
+    void testTransactionProcess_WithEmptyFileNameAndGpsRequest() {
+        when(inMessage.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(null);
+        when(inMessage.getBody(GpsRequest.class)).thenReturn(null);
+
+        service.transactionProcess(exchange);
+
+        verify(resubmitService, never()).handleRetryTransaction(anyString(), any(), anyString());
+    }
+
+    @Test
+    void testTransactionProcess_WithRetryTransaction() {
+        when(inMessage.getHeader(Exchange.FILE_NAME, String.class)).thenReturn("testfile.txt");
+        when(inMessage.getBody(GpsRequest.class)).thenReturn(gpsRequest);
+        when(gpsRequest.getCashMovementModel().getSourceReference()).thenReturn("retryTransactionId");
+
+        service.transactionProcess(exchange);
+
+        verify(resubmitService, times(1)).handleRetryTransaction(anyString(), eq(gpsRequest), eq("testfile.txt"));
+    }
+
+    @Test
+    void testTransactionProcess_WithNonRetryTransaction() {
+        when(inMessage.getHeader(Exchange.FILE_NAME, String.class)).thenReturn("testfile.txt");
+        when(inMessage.getBody(GpsRequest.class)).thenReturn(gpsRequest);
+        when(gpsRequest.getCashMovementModel().getSourceReference()).thenReturn("normalTransactionId");
+
+        service.transactionProcess(exchange);
+
+        // Replace `upsertAcuTransactionInfo(exchange);` with appropriate mock verification if needed
+        verify(resubmitService, never()).handleRetryTransaction(anyString(), any(), anyString());
+        // Additional verifications for upsertAcuTransactionInfo if needed
+    }
+}
