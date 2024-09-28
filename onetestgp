@@ -1,0 +1,57 @@
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+
+@ExtendWith(MockitoExtension.class)
+public class ResubmitProcessorTest {
+
+    @Mock
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Mock
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @Spy
+    @InjectMocks
+    private ResubmitProcessor resubmitProcessor;
+
+    @BeforeEach
+    void setup() {
+        // Ensure the ResubmitProcessor spy is properly initialized
+        resubmitProcessor = Mockito.spy(new ResubmitProcessor(transactionInfoRepository, resubmitOrderRepository));
+    }
+
+    @Test
+    void testHandleRetryTransaction_InvalidTransaction_NoFailureStatus() {
+        // Arrange
+        GpsRequest mockGpsRequest = mock(GpsRequest.class);
+        String transactionId = "transaction123retry";
+        String fileName = "testFile.txt";
+
+        // Mock the return value for the latest failure transaction as empty (indicating no failure)
+        when(transactionInfoRepository.findFirstByTransactionIdAndStatusOrderByModifiedAtDesc(anyString(), eq("FAILURE")))
+                .thenReturn(Optional.empty());
+
+        // Mock the private methods using doNothing, assuming no exceptions
+        doNothing().when(resubmitProcessor).createInvalidResubmitOrder(eq(transactionId), eq(mockGpsRequest), anyString(), eq(fileName));
+        doNothing().when(resubmitProcessor).createInvalidTransactionInfo(eq(mockGpsRequest), eq(fileName));
+
+        // Act & Assert - Call handleRetryTransaction and expect an exception due to INVALID state
+        assertThrows(InvalidDuplicateResubmitException.class, () ->
+                resubmitProcessor.handleRetryTransaction(transactionId, mockGpsRequest, fileName)
+        );
+
+        // Verify that the private methods were called
+        verify(resubmitProcessor, times(1)).createInvalidResubmitOrder(eq(transactionId), eq(mockGpsRequest), anyString(), eq(fileName));
+        verify(resubmitProcessor, times(1)).createInvalidTransactionInfo(eq(mockGpsRequest), eq(fileName));
+    }
+}
