@@ -1,0 +1,63 @@
+private void createOrAppendResubmitOrder(String transactionId, GpsRequest newGpsRequest, 
+    String originalTransactionId, String fileName) {
+    
+    LocalDate today = LocalDate.now();
+    
+    // Handle the case where no open order exists
+    ResubmitOrder resubmitOrder = resubmitOrderRepository.findOpenOrderByDate(today)
+            .orElseGet(() -> {
+                // Create a new ResubmitOrder
+                ResubmitOrder newOrder = createNewResubmitOrder();
+                // Initialize the resubmitGpsRequest list
+                newOrder.setResubmitGpsRequest(new ArrayList<>());
+                return newOrder;
+            });
+    
+    resubmitOrder.setFeedType("ACU");
+    resubmitOrder.setUpdatedAt(LocalDateTime.now());
+    
+    // Create the ResubmitGpsRequest
+    ResubmitGpsRequest resubmitGpsRequest = createResubmitGpsRequest(transactionId, newGpsRequest, 
+        originalTransactionId, fileName);
+    
+    // Ensure resubmitGpsRequest is initialized
+    resubmitOrder.getResubmitGpsRequest().add(resubmitGpsRequest);
+    
+    resubmitOrderRepository.save(resubmitOrder);
+}
+
+
+///test
+
+
+@Test
+public void testCreateOrAppendResubmitOrder_NewOrderCreated() {
+    // Arrange
+    when(resubmitOrderRepository.findOpenOrderByDate(any(LocalDate.class)))
+            .thenReturn(Optional.empty()); // Simulate no existing order
+
+    // Act
+    resubmitProcessor.createOrAppendResubmitOrder(transactionId, gpsRequest, originalTransactionId, fileName);
+
+    // Assert
+    verify(resubmitOrderRepository, times(1)).findOpenOrderByDate(any(LocalDate.class));
+    verify(resubmitOrderRepository, times(1)).save(any(ResubmitOrder.class)); // Ensure save is called
+}
+
+@Test
+public void testCreateOrAppendResubmitOrder_ExistingOrderUpdated() {
+    // Arrange
+    ResubmitOrder existingOrder = new ResubmitOrder();
+    existingOrder.setResubmitGpsRequest(new ArrayList<>()); // Initialize the list
+
+    when(resubmitOrderRepository.findOpenOrderByDate(any(LocalDate.class)))
+            .thenReturn(Optional.of(existingOrder)); // Simulate existing order
+
+    // Act
+    resubmitProcessor.createOrAppendResubmitOrder(transactionId, gpsRequest, originalTransactionId, fileName);
+
+    // Assert
+    verify(resubmitOrderRepository, times(1)).findOpenOrderByDate(any(LocalDate.class));
+    verify(resubmitOrderRepository, times(1)).save(existingOrder); // Ensure save is called on existing order
+    assertEquals(1, existingOrder.getResubmitGpsRequest().size()); // Check that the new request was added
+}
