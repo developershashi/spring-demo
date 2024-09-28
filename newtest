@@ -1,0 +1,101 @@
+import com.gs.amd.rps.adapter.processor.ResubmitProcessor;
+import com.gs.amd.rps.adapter.processor.TransactionInfo;
+import com.gs.amd.rps.adapter.processor.TransactionInfoRepository;
+import com.gs.amd.rps.adapter.processor.ResubmitOrderRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class ResubmitProcessorTest {
+
+    @InjectMocks
+    private ResubmitProcessor resubmitProcessor;
+
+    @Mock
+    private TransactionInfoRepository transactionInfoRepository;
+
+    @Mock
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @Mock
+    private GpsRequest gpsRequest;
+
+    private final String transactionId = "transaction123retry";
+    private final String originalTransactionId = "transaction123";
+    private final String fileName = "testFile.txt";
+
+    @BeforeEach
+    public void setUp() {
+        // Any setup required before each test case
+    }
+
+    @Test
+    public void testHandleRetryTransaction_ValidFailureTransaction() {
+        // Arrange
+        TransactionInfo mockTransactionInfo = new TransactionInfo();
+        mockTransactionInfo.setTransactionId(originalTransactionId);
+        when(transactionInfoRepository.findLatestFailureTransactionBySimilarTransactionId(any()))
+                .thenReturn(Optional.of(mockTransactionInfo));
+
+        // Act
+        resubmitProcessor.handleRetryTransaction(transactionId, gpsRequest, fileName);
+
+        // Assert
+        verify(transactionInfoRepository, times(1)).findLatestFailureTransactionBySimilarTransactionId(any());
+        verify(resubmitOrderRepository, never()).save(any());
+    }
+
+    @Test
+    public void testHandleRetryTransaction_NoFailureTransaction() {
+        // Arrange
+        when(transactionInfoRepository.findLatestFailureTransactionBySimilarTransactionId(any()))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(InvalidTransactionException.class, () ->
+                resubmitProcessor.handleRetryTransaction(transactionId, gpsRequest, fileName));
+
+        // Verify that invalid resubmit order and transaction info are created
+        verify(resubmitProcessor, times(1)).createInvalidResubmitOrder(any(), any(), any(), any());
+        verify(resubmitProcessor, times(1)).createInvalidTransactionInfo(any(), any());
+    }
+
+    @Test
+    public void testHandleRetryTransaction_TransactionNotFoundException() {
+        // Arrange
+        when(transactionInfoRepository.findLatestFailureTransactionBySimilarTransactionId(any()))
+                .thenThrow(new TransactionNotFoundException("Transaction not found"));
+
+        // Act & Assert
+        assertThrows(ResubmitProcessException.class, () ->
+                resubmitProcessor.handleRetryTransaction(transactionId, gpsRequest, fileName));
+
+        // Verify error logging and exception thrown
+        verify(resubmitProcessor, never()).processResubmit(any(), any(), any(), any());
+    }
+
+    @Test
+    public void testHandleRetryTransaction_UnexpectedException() {
+        // Arrange
+        when(transactionInfoRepository.findLatestFailureTransactionBySimilarTransactionId(any()))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        // Act & Assert
+        assertThrows(ResubmitProcessException.class, () ->
+                resubmitProcessor.handleRetryTransaction(transactionId, gpsRequest, fileName));
+
+        // Verify that appropriate error logging occurs
+        verify(resubmitProcessor, never()).processResubmit(any(), any(), any(), any());
+    }
+}
