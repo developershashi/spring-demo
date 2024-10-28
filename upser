@@ -1,0 +1,26 @@
+public void upsertPaymentTransactionInfo(Exchange exchange) {
+    List<GpsRequest> gpsRequests = (List<GpsRequest>) exchange.getIn().getBody(List.class);
+    String fileName = exchange.getIn().getHeader(Exchange.FILE_NAME, String.class);
+
+    if (ObjectUtils.isEmpty(fileName) || ObjectUtils.isEmpty(gpsRequests)) {
+        log.error("Empty Data Found for Payment. isFileNameEmpty: {}, isGpsRequestsEmpty: {}", 
+                  ObjectUtils.isEmpty(fileName), ObjectUtils.isEmpty(gpsRequests));
+        return;
+    }
+
+    log.info("Inserting all Payment transaction data for file {} into the database. Data size: {}", 
+             fileName, gpsRequests.size());
+
+    // Collect transaction IDs of successfully inserted records
+    List<String> transactionIds = gpsRequests.stream()
+        .map(gpsRequest -> transactionService.upsertTransactionInfo(gpsRequest, fileName, PAYMENT_FEED))
+        .filter(Optional::isPresent)
+        .map(paymentInfo -> paymentInfo.get().getTransactionId())  // Extract the transaction ID from each record
+        .collect(Collectors.toList());
+
+    // Store transaction IDs in Exchange properties for later access
+    exchange.setProperty("transactionIds", transactionIds);
+
+    log.info("Payment Transaction data for file {} successfully inserted into the database. Insert count: {}", 
+             fileName, transactionIds.size());
+}
