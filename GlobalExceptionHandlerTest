@@ -1,0 +1,121 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.context.request.WebRequest;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+
+class GlobalExceptionHandlerTest {
+
+    private GlobalExceptionHandler exceptionHandler;
+
+    @Mock
+    private WebRequest mockWebRequest;
+
+    @BeforeEach
+    void setUp() {
+        exceptionHandler = new GlobalExceptionHandler();
+        mockWebRequest = mock(WebRequest.class);
+    }
+
+    @Test
+    void testHandleTransactionIdNotFoundException() {
+        // Arrange
+        TransactionIdNotFoundException exception = new TransactionIdNotFoundException("Transaction ID not found");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleTransactionIdNotFoundException(exception, mockWebRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("Transaction ID not found", response.getBody());
+    }
+
+    @Test
+    void testHandleInternalServerErrorException() {
+        // Arrange
+        Exception exception = new Exception("Internal server error");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleInternalServerErrorException(exception, mockWebRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertEquals("Internal server error", response.getBody());
+    }
+
+    @Test
+    void testHandleBadRequestException() {
+        // Arrange
+        BadRequestException exception = new BadRequestException("Bad request");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleBadRequestException(exception, mockWebRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Bad request", response.getBody());
+    }
+
+    @Test
+    void testHandleInvalidStatusException() {
+        // Arrange
+        InvalidStatusException exception = new InvalidStatusException("Invalid status");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleInvalidStatusException(exception, mockWebRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Invalid status", response.getBody());
+    }
+
+    @Test
+    void testHandleInvalidGSSSOTokenException() {
+        // Arrange
+        InvalidGSSSOTokenException exception = new InvalidGSSSOTokenException("Invalid GSSSO Token");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleInvalidGSSSOTokenException(exception, mockWebRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
+        assertEquals("Invalid GSSSO Token", response.getBody());
+    }
+
+    @Test
+    void testHandleResubmitOrderNotFoundException() {
+        // Arrange
+        ResubmitOrderNotFoundException exception = new ResubmitOrderNotFoundException("Resubmit order not found");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleResubmitOrderNotFoundException(exception, mockWebRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("Resubmit order not found", response.getBody());
+    }
+
+    @Test
+    void testHandleUnauthorizedException() {
+        // Arrange
+        UnauthorizedException exception = new UnauthorizedException("Unauthorized access");
+
+        // Act
+        ResponseEntity<String> response = exceptionHandler.handleUnauthorizedException(exception);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals("Unauthorized access", response.getBody());
+    }
+}
