@@ -1,0 +1,57 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class NotificationServiceImplTest {
+
+    @Mock
+    private RetryService retryService;
+
+    @Mock
+    private ResubmitOrdersService resubmitOrdersService;
+
+    @Mock
+    private TerminateOrderService terminateOrderService;
+
+    @InjectMocks
+    private NotificationServiceImpl notificationService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testGetNotificationDetails_Success() {
+        // Arrange
+        long mockRetryApprovalCount = 5L;
+        long mockOpenResubmitCount = 3L;
+        long mockResubmitApprovalCount = 2L;
+        long mockTerminateApprovalCount = 4L;
+
+        Mockito.when(retryService.getRetryOrderApprovalCount()).thenReturn(mockRetryApprovalCount);
+        Mockito.when(resubmitOrdersService.getResubmitOrderOpenCount()).thenReturn(mockOpenResubmitCount);
+        Mockito.when(resubmitOrdersService.getResubmitOrderApprovalCount()).thenReturn(mockResubmitApprovalCount);
+        Mockito.when(terminateOrderService.getTerminateOrderApprovalCount()).thenReturn(mockTerminateApprovalCount);
+
+        // Act
+        Notifications notifications = notificationService.getNotificationDetails();
+
+        // Assert
+        assertEquals(mockRetryApprovalCount, notifications.getRetryOrderApprovalCount());
+        assertEquals(mockOpenResubmitCount, notifications.getResubmitOrderFreezeCount());
+        assertEquals(mockResubmitApprovalCount, notifications.getResubmitOrderApprovalCount());
+        assertEquals(mockTerminateApprovalCount, notifications.getTerminateOrderApprovalCount());
+
+        // Verify interactions
+        Mockito.verify(retryService, Mockito.times(1)).getRetryOrderApprovalCount();
+        Mockito.verify(resubmitOrdersService, Mockito.times(1)).getResubmitOrderOpenCount();
+        Mockito.verify(resubmitOrdersService, Mockito.times(1)).getResubmitOrderApprovalCount();
+        Mockito.verify(terminateOrderService, Mockito.times(1)).getTerminateOrderApprovalCount();
+    }
+}
