@@ -1,0 +1,14 @@
+@Test
+void testAPPROVEORDER_SUCCESS() {
+    // Mock or setup test data
+    Transaction mockTransaction = new Transaction();
+    mockTransaction.setOrderId("order123");
+    transactionRepository.save(mockTransaction); // Save to test database or mock it
+
+    // Call the service method
+    ResubmitOrder result = resubmitOrdersService.approveOrder("order123");
+
+    // Assert the result
+    assertNotNull(result);
+    assertEquals("APPROVED", result.getStatus());
+}
