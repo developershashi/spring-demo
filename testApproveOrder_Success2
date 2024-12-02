@@ -1,0 +1,27 @@
+@Test
+void testApproveOrder_Success() {
+    // Arrange
+    String orderId = "order123";
+    String approveComments = "Approved successfully";
+    String kerberos = "user123";
+
+    ResubmitOrder mockOrder = new ResubmitOrder();
+    mockOrder.setStatus(ResubmitStatus.FROZEN.getStatus());
+    mockOrder.setResubmitGpsRequest(List.of(new ResubmitGpsRequest(false, "txn123")));
+
+    // Mock repositories
+    Mockito.when(resubmitOrderRepository.findByOrderId(orderId))
+            .thenReturn(Optional.of(mockOrder));
+    Mockito.when(resubmitTransactionInfoRepository.findByTransactionId("txn123"))
+            .thenReturn(Optional.of(new RetryTransaction("txn123", ...)));
+
+    // Act
+    resubmitOrdersService.approveOrder(orderId, approveComments, kerberos);
+
+    // Assert
+    Mockito.verify(resubmitOrderRepository).save(mockOrder);
+    Mockito.verify(resubmitTransactionInfoRepository, Mockito.times(1)).save(Mockito.any(RetryTransaction.class));
+
+    // Additional verification (Optional)
+    assertEquals(ResubmitStatus.APPROVED.getStatus(), mockOrder.getStatus());
+}
