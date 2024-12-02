@@ -1,0 +1,94 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.lang.reflect.Field;
+
+class QueryBuilderImplTest {
+
+    private QueryBuilderImpl queryBuilder;
+
+    @BeforeEach
+    void setUp() {
+        queryBuilder = new QueryBuilderImpl();
+    }
+
+    @Test
+    void testGetValueForField_ValidField() throws Exception {
+        // Arrange
+        FilterParams params = new FilterParams();
+        params.setTransactionStatus("SUCCESS");
+
+        // Act
+        Object value = queryBuilder.getValueForField(params, "transactionStatus");
+
+        // Assert
+        assertNotNull(value);
+        assertEquals("SUCCESS", value);
+    }
+
+    @Test
+    void testGetValueForField_InvalidField() {
+        // Arrange
+        FilterParams params = new FilterParams();
+
+        // Act
+        Object value = queryBuilder.getValueForField(params, "nonExistentField");
+
+        // Assert
+        assertNull(value);
+    }
+
+    @Test
+    void testGetValueForField_NullFilterParams() {
+        // Act
+        Object value = queryBuilder.getValueForField(null, "transactionStatus");
+
+        // Assert
+        assertNull(value);
+    }
+
+    @Test
+    void testGetValueForField_NullFieldName() {
+        // Arrange
+        FilterParams params = new FilterParams();
+        params.setTransactionStatus("SUCCESS");
+
+        // Act
+        Object value = queryBuilder.getValueForField(params, null);
+
+        // Assert
+        assertNull(value);
+    }
+
+    @Test
+    void testGetValueForField_NoSuchFieldException() {
+        // Arrange
+        FilterParams params = mock(FilterParams.class);
+
+        // Simulate NoSuchFieldException
+        Field field = Mockito.mock(Field.class);
+        when(field.getName()).thenReturn("nonExistentField");
+
+        // Act
+        Object value = queryBuilder.getValueForField(params, "nonExistentField");
+
+        // Assert
+        assertNull(value);
+    }
+
+    @Test
+    void testGetValueForField_FieldWithNullValue() throws Exception {
+        // Arrange
+        FilterParams params = new FilterParams();
+        params.setTransactionStatus(null);
+
+        // Act
+        Object value = queryBuilder.getValueForField(params, "transactionStatus");
+
+        // Assert
+        assertNull(value);
+    }
+}
