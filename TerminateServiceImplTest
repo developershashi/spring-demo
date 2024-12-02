@@ -1,0 +1,70 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class TerminateServiceImplTest {
+
+    @Mock
+    private TerminateOrderRepository terminateOrderRepository;
+
+    @Mock
+    private RetryTransactionRepository retryTransactionRepository;
+
+    @InjectMocks
+    private TerminateServiceImpl terminateService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testGetOrderById_Success() {
+        // Arrange
+        String orderId = "order123";
+        TerminateOrder mockOrder = new TerminateOrder();
+        mockOrder.setOrderId(orderId);
+
+        Mockito.when(terminateOrderRepository.findByOrderId(orderId))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act
+        Optional<TerminateOrder> result = terminateService.getOrderById(orderId);
+
+        // Assert
+        assertTrue(result.isPresent());
+        assertEquals(orderId, result.get().getOrderId());
+        Mockito.verify(terminateOrderRepository, Mockito.times(1)).findByOrderId(orderId);
+    }
+
+    @Test
+    void testGetTransactionInfo_Success() {
+        // Arrange
+        List<String> transactionIds = List.of("txn1", "txn2");
+        RetryTransaction transaction1 = new RetryTransaction();
+        transaction1.setTransactionId("txn1");
+        RetryTransaction transaction2 = new RetryTransaction();
+        transaction2.setTransactionId("txn2");
+
+        Mockito.when(retryTransactionRepository.findByTransactionIdIn(transactionIds))
+                .thenReturn(List.of(transaction1, transaction2));
+
+        // Act
+        List<RetryTransaction> result = terminateService.getTransactionInfo(transactionIds);
+
+        // Assert
+        assertEquals(2, result.size());
+        assertEquals("txn1", result.get(0).getTransactionId());
+        assertEquals("txn2", result.get(1).getTransactionId());
+        Mockito.verify(retryTransactionRepository, Mockito.times(1)).findByTransactionIdIn(transactionIds);
+    }
+}
