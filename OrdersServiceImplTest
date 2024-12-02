@@ -1,0 +1,118 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+class OrdersServiceImplTest {
+
+    @Mock
+    private RetryTransactionRepository retryTransactionRepository;
+
+    @Mock
+    private RetryOrderRepository retryOrderRepository;
+
+    @InjectMocks
+    private OrdersServiceImpl ordersService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testApproveOrder_SubmitterCannotApprove() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "submitter";
+        RetryOrder mockOrder = new RetryOrder();
+        mockOrder.setSubmittedBy(kerberos);
+        when(retryOrderRepository.findByOrderIdAndStatus(orderId, RetryConstants.OPEN))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act & Assert
+        BadRequestException exception = assertThrows(BadRequestException.class,
+                () -> ordersService.approveOrder(orderId, "Approved", kerberos));
+        assertEquals(RetryConstants.SUBMITTERS_CANNOT_APPROVE_MSG, exception.getMessage());
+    }
+
+    @Test
+    void testApproveOrder_Success() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "approver";
+        RetryOrder mockOrder = new RetryOrder();
+        mockOrder.setSubmittedBy("submitter");
+        mockOrder.setTransactionIds(List.of("txn1", "txn2"));
+
+        RetryTransaction transaction1 = new RetryTransaction();
+        transaction1.setTransactionId("txn1");
+        RetryTransaction transaction2 = new RetryTransaction();
+        transaction2.setTransactionId("txn2");
+
+        when(retryOrderRepository.findByOrderIdAndStatus(orderId, RetryConstants.OPEN))
+                .thenReturn(Optional.of(mockOrder));
+        when(retryTransactionRepository.findByTransactionIdIn(mockOrder.getTransactionIds()))
+                .thenReturn(List.of(transaction1, transaction2));
+        when(retryTransactionRepository.saveAll(any())).thenReturn(null);
+
+        // Act
+        ordersService.approveOrder(orderId, "Approved", kerberos);
+
+        // Assert
+        verify(retryTransactionRepository, times(1)).saveAll(anyList());
+        verify(retryOrderRepository, times(1)).save(any(RetryOrder.class));
+    }
+
+    @Test
+    void testRejectOrder_SubmitterCannotReject() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "submitter";
+        RetryOrder mockOrder = new RetryOrder();
+        mockOrder.setSubmittedBy(kerberos);
+        when(retryOrderRepository.findByOrderIdAndStatus(orderId, RetryConstants.OPEN))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act & Assert
+        BadRequestException exception = assertThrows(BadRequestException.class,
+                () -> ordersService.rejectOrder(orderId, "Rejected", kerberos));
+        assertEquals(RetryConstants.SUBMITTERS_CANNOT_REJECT_MSG, exception.getMessage());
+    }
+
+    @Test
+    void testRejectOrder_Success() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "reviewer";
+        RetryOrder mockOrder = new RetryOrder();
+        mockOrder.setSubmittedBy("submitter");
+        mockOrder.setTransactionIds(List.of("txn1", "txn2"));
+
+        RetryTransaction transaction1 = new RetryTransaction();
+        transaction1.setTransactionId("txn1");
+        RetryTransaction transaction2 = new RetryTransaction();
+        transaction2.setTransactionId("txn2");
+
+        when(retryOrderRepository.findByOrderIdAndStatus(orderId, RetryConstants.OPEN))
+                .thenReturn(Optional.of(mockOrder));
+        when(retryTransactionRepository.findByTransactionIdIn(mockOrder.getTransactionIds()))
+                .thenReturn(List.of(transaction1, transaction2));
+        when(retryTransactionRepository.saveAll(any())).thenReturn(null);
+
+        // Act
+        ordersService.rejectOrder(orderId, "Rejected", kerberos);
+
+        // Assert
+        verify(retryTransactionRepository, times(1)).saveAll(anyList());
+        verify(retryOrderRepository, times(1)).save(any(RetryOrder.class));
+    }
+}
