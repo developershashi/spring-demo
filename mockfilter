@@ -1,0 +1,24 @@
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.*;
+
+@Test
+void testGetDashboardFilterValuesWithMocking() {
+    try (MockedStatic<FeedType> mockFeedType = mockStatic(FeedType.class);
+         MockedStatic<ResponseCodeType> mockResponseCodeType = mockStatic(ResponseCodeType.class);
+         MockedStatic<TransactionInfoStatus> mockTransactionStatus = mockStatic(TransactionInfoStatus.class)) {
+
+        // Mock return values
+        mockFeedType.when(FeedType::getFeedTypes).thenReturn(Arrays.asList("Feed1", "Feed2"));
+        mockResponseCodeType.when(ResponseCodeType::getResponseCodes).thenReturn(Arrays.asList("200", "404"));
+        mockTransactionStatus.when(TransactionInfoStatus::getTransactionStatus).thenReturn(Arrays.asList("PENDING", "SUCCESS"));
+
+        // Act
+        FilterDTO result = filterService.getDashboardFilterValues();
+
+        // Assert
+        assertEquals(Arrays.asList("Feed1", "Feed2"), result.getFeeds());
+        assertEquals(Arrays.asList("200", "404"), result.getResponseCodes());
+        assertEquals(Arrays.asList("PENDING", "SUCCESS"), result.getStatuses());
+        assertEquals(Arrays.asList("true", "false"), result.getEmailSent());
+    }
+}
