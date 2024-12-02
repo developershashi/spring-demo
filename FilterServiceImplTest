@@ -1,0 +1,41 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class FilterServiceImplTest {
+
+    private FilterServiceImpl filterService;
+
+    @BeforeEach
+    void setUp() {
+        filterService = new FilterServiceImpl();
+    }
+
+    @Test
+    void testGetDashboardFilterValues() {
+        // Act
+        FilterDTO result = filterService.getDashboardFilterValues();
+
+        // Assert
+        assertNotNull(result, "FilterDTO should not be null");
+        assertNotNull(result.getFeeds(), "Feeds should not be null");
+        assertNotNull(result.getResponseCodes(), "Response Codes should not be null");
+        assertNotNull(result.getStatuses(), "Statuses should not be null");
+        assertNotNull(result.getEmailSent(), "Email Sent list should not be null");
+
+        // Validate feeds
+        assertEquals(FeedType.getFeedTypes(), result.getFeeds(), "Feeds do not match");
+
+        // Validate response codes
+        assertEquals(ResponseCodeType.getResponseCodes(), result.getResponseCodes(), "Response Codes do not match");
+
+        // Validate statuses
+        assertEquals(TransactionInfoStatus.getTransactionStatus(), result.getStatuses(), "Statuses do not match");
+
+        // Validate email sent
+        assertEquals(Arrays.asList("true", "false"), result.getEmailSent(), "Email Sent list does not match");
+    }
+}
