@@ -1,0 +1,72 @@
+import com.yourpackage.OrdersController;
+import com.yourpackage.OrdersService;
+import com.yourpackage.ReviewRequest;
+import com.yourpackage.ActionResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(OrdersController.class)
+@WithMockUser(roles = "RPS_EAD_APPROVE")
+public class OrdersControllerTest {
+
+    @Mock
+    private OrdersService ordersService;
+
+    @InjectMocks
+    private OrdersController ordersController;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(ordersController).build();
+    }
+
+    @Test
+    void testApproveOrder() throws Exception {
+        ReviewRequest reviewRequest = new ReviewRequest();
+        reviewRequest.setOrderId("order123");
+        reviewRequest.setComments("Approved successfully");
+
+        doNothing().when(ordersService).approveOrder(anyString(), anyString(), anyString());
+
+        mockMvc.perform(post("/retry/orders/approve")
+                .contentType("application/json")
+                .content("{\"orderId\":\"order123\",\"comments\":\"Approved successfully\"}")
+                .cookie(new Cookie("GSSSO", "mockedGSSSO")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Order approved successfully"));
+
+        verify(ordersService, times(1)).approveOrder(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void testRejectOrder() throws Exception {
+        ReviewRequest reviewRequest = new ReviewRequest();
+        reviewRequest.setOrderId("order123");
+        reviewRequest.setComments("Rejected due to issues");
+
+        doNothing().when(ordersService).rejectOrder(anyString(), anyString(), anyString());
+
+        mockMvc.perform(post("/retry/orders/reject")
+                .contentType("application/json")
+                .content("{\"orderId\":\"order123\",\"comments\":\"Rejected due to issues\"}")
+                .cookie(new Cookie("GSSSO", "mockedGSSSO")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Order rejected successfully"));
+
+        verify(ordersService, times(1)).rejectOrder(anyString(), anyString(), anyString());
+    }
+}
