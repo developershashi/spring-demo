@@ -1,0 +1,156 @@
+@ExtendWith(MockitoExtension.class)
+class ResubmitOrdersServiceImplTest {
+
+    @Mock
+    private ResubmitOrderRepository resubmitOrderRepository;
+
+    @Mock
+    private ResubmitTransactionInfoRepository resubmitTransactionInfoRepository;
+
+    @InjectMocks
+    private ResubmitOrdersServiceImpl resubmitOrdersService;
+
+    @Test
+    void testApproveOrder_Success() {
+        // Arrange
+        String orderId = "order123";
+        String approveComments = "Approved successfully";
+        String kerberos = "user123";
+
+        ResubmitOrder mockOrder = new ResubmitOrder();
+        mockOrder.setStatus(ResubmitStatus.FROZEN.getStatus());
+        mockOrder.setResubmitGpsRequest(List.of(new ResubmitGpsRequest(false, "txn123")));
+
+        Mockito.when(resubmitOrderRepository.findByOrderId(orderId))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act
+        resubmitOrdersService.approveOrder(orderId, approveComments, kerberos);
+
+        // Assert
+        Mockito.verify(resubmitOrderRepository).save(mockOrder);
+        Mockito.verify(resubmitTransactionInfoRepository, Mockito.times(1)).save(Mockito.any(RetryTransaction.class));
+    }
+
+    @Test
+    void testApproveOrder_InvalidStatus() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "user123";
+
+        ResubmitOrder mockOrder = new ResubmitOrder();
+        mockOrder.setStatus("INVALID");
+
+        Mockito.when(resubmitOrderRepository.findByOrderId(orderId))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act & Assert
+        InvalidStatusException exception = Assertions.assertThrows(InvalidStatusException.class, () -> {
+            resubmitOrdersService.approveOrder(orderId, "approve comments", kerberos);
+        });
+
+        Assertions.assertEquals("Order cannot be approved in the current status.", exception.getMessage());
+    }
+
+    @Test
+    void testRejectOrder_Success() {
+        // Arrange
+        String orderId = "order123";
+        String rejectComments = "Rejected due to invalid data";
+        String kerberos = "user123";
+
+        ResubmitOrder mockOrder = new ResubmitOrder();
+        mockOrder.setStatus(ResubmitStatus.FROZEN.getStatus());
+        mockOrder.setResubmitGpsRequest(List.of(new ResubmitGpsRequest(false, "txn123")));
+
+        Mockito.when(resubmitOrderRepository.findByOrderId(orderId))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act
+        resubmitOrdersService.rejectOrder(orderId, rejectComments, kerberos);
+
+        // Assert
+        Mockito.verify(resubmitOrderRepository).save(mockOrder);
+    }
+
+    @Test
+    void testFreezeOrder_Success() {
+        // Arrange
+        String orderId = "order123";
+        String freezeComments = "Order frozen";
+        String kerberos = "user123";
+
+        ResubmitOrder mockOrder = new ResubmitOrder();
+        mockOrder.setStatus(ResubmitStatus.OPEN.getStatus());
+
+        Mockito.when(resubmitOrderRepository.findByOrderId(orderId))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act
+        resubmitOrdersService.freezeOrder(orderId, freezeComments, kerberos);
+
+        // Assert
+        Mockito.verify(resubmitOrderRepository).save(mockOrder);
+    }
+
+    @Test
+    void testCancelOrder_Success() {
+        // Arrange
+        String orderId = "order123";
+        List<String> cancelIds = List.of("txn123");
+        String comments = "Cancelled due to client request";
+        String kerberos = "user123";
+
+        ResubmitGpsRequest gpsRequest = new ResubmitGpsRequest(false, "txn123");
+        ResubmitOrder mockOrder = new ResubmitOrder();
+        mockOrder.setResubmitGpsRequest(List.of(gpsRequest));
+        mockOrder.setStatus(ResubmitStatus.OPEN.getStatus());
+
+        Mockito.when(resubmitOrderRepository.findByOrderId(orderId))
+                .thenReturn(Optional.of(mockOrder));
+
+        // Act
+        resubmitOrdersService.cancelOrder(orderId, cancelIds, comments, kerberos);
+
+        // Assert
+        Assertions.assertTrue(gpsRequest.isCancelled());
+        Mockito.verify(resubmitOrderRepository).save(mockOrder);
+    }
+
+    @Test
+    void testSaveOrder() {
+        // Arrange
+        ResubmitOrder mockOrder = new ResubmitOrder();
+        Mockito.when(resubmitOrderRepository.save(mockOrder)).thenReturn(mockOrder);
+
+        // Act
+        resubmitOrdersService.saveOrder(mockOrder);
+
+        // Assert
+        Mockito.verify(resubmitOrderRepository).save(mockOrder);
+    }
+
+    @Test
+    void testGetResubmitOrderOpenCount() {
+        // Arrange
+        Mockito.when(resubmitOrderRepository.countByStatus(RetryConstants.OPEN)).thenReturn(5L);
+
+        // Act
+        long count = resubmitOrdersService.getResubmitOrderOpenCount();
+
+        // Assert
+        Assertions.assertEquals(5L, count);
+    }
+
+    @Test
+    void testGetResubmitOrderApprovalCount() {
+        // Arrange
+        Mockito.when(resubmitOrderRepository.countByStatus(ResubmitStatus.FROZEN.getStatus())).thenReturn(3L);
+
+        // Act
+        long count = resubmitOrdersService.getResubmitOrderApprovalCount();
+
+        // Assert
+        Assertions.assertEquals(3L, count);
+    }
+}
