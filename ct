@@ -1,0 +1,96 @@
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.*;
+import org.springframework.security.test.context.support.WithMockUser;
+import java.util.*;
+
+class ControllerTest {
+
+    @InjectMocks
+    private RetryController retryController;
+
+    @InjectMocks
+    private DashboardController dashboardController;
+
+    @Mock
+    private RetryService retryService;
+
+    @Mock
+    private DashboardService dashboardService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    // Test for cancel() in RetryController
+    @Test
+    @WithMockUser(roles = {"RPS_EAD_SUBMIT_RETRY"})
+    void testCancel_Success() throws Exception {
+        // Arrange
+        ReviewRequest cancelRetryRequest = new ReviewRequest();
+        cancelRetryRequest.setOrderId("123");
+        cancelRetryRequest.setComments("Test cancellation");
+        String gsssoToken = "testToken";
+        String kerberos = "testKerberos";
+
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of(kerberos));
+        when(retryService.processCancel("123", "Test cancellation", kerberos)).thenReturn("123");
+
+        // Act
+        ResponseEntity<RetryResponse> response = retryController.cancel(cancelRetryRequest, gsssoToken);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("123", response.getBody().getOrderId());
+        assertEquals(RetryConstants.CANCEL_ORDER_SUCCESS, response.getBody().getMessage());
+        verify(retryService, times(1)).processCancel("123", "Test cancellation", kerberos);
+    }
+
+    // Test for getTransactions() in DashboardController
+    @Test
+    void testGetTransactions_Success() throws Exception {
+        // Arrange
+        Map<String, String> reqParams = Map.of("filter", "value");
+        FilterParams filterParams = new FilterParams();
+        Pageable pageable = PageRequest.of(0, 1000);
+        Page<TransactionInfo> pageResult = new PageImpl<>(List.of(new TransactionInfo()));
+
+        when(dashboardService.getTransactions(reqParams, pageable, filterParams)).thenReturn(pageResult);
+
+        // Act
+        ResponseEntity<String> response = dashboardController.getTransactions(reqParams, pageable, filterParams);
+
+        // Assert
+        assertNotNull(response);
+        assertTrue(response.getBody().contains("TransactionInfo"));
+        verify(dashboardService, times(1)).getTransactions(reqParams, pageable, filterParams);
+    }
+
+    // Test for getFilterCount() in DashboardController
+    @Test
+    @WithMockUser(roles = {"RPS_EAD_VIEW_LIST"})
+    void testGetFilterCount_Success() throws Exception {
+        // Arrange
+        Map<String, String> reqParams = Map.of("filter", "value");
+        FilterParams filterParams = new FilterParams();
+        TransactionCounts transactionCounts = new TransactionCounts();
+        transactionCounts.setCount(100);
+
+        when(dashboardService.getFilterCount(reqParams, filterParams)).thenReturn(transactionCounts);
+
+        // Act
+        ResponseEntity<TransactionCounts> response = dashboardController.getFilterCount(reqParams, filterParams);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(100, response.getBody().getCount());
+        verify(dashboardService, times(1)).getFilterCount(reqParams, filterParams);
+    }
+}
