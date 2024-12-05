@@ -1,0 +1,115 @@
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+class ViewOrdersServiceImplTest {
+
+    @InjectMocks
+    private ViewOrdersServiceImpl viewOrdersService;
+
+    @Mock
+    private RetryOrderRepository retryOrderRepository;
+
+    @Mock
+    private RetryTransaction retryTransaction;
+
+    @Mock
+    private TransactionService transactionService;
+
+    @Mock
+    private RetryOrder retryOrder;
+
+    @Mock
+    private OrderTransactionResponse orderTransactionResponse;
+
+    @BeforeEach
+    void setUp() {
+        // Set up necessary mocks for RetryOrder and RetryTransaction
+    }
+
+    @Test
+    void testGetOrderTransactionsWithApprovedStatus() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "kerberos_token";
+        List<String> transactionIds = Arrays.asList("tx1", "tx2", "tx3");
+        List<String> retryTransactionIds = Arrays.asList("rtx1", "rtx2");
+
+        // Mock the retryOrderRepository and other necessary components
+        when(retryOrderRepository.findByOrderId(orderId)).thenReturn(Optional.of(retryOrder));
+        when(retryOrder.getStatus()).thenReturn(RetryConstants.APPROVED);
+        when(retryOrder.getTransactionIds()).thenReturn(transactionIds);
+        when(retryOrder.getRetryTransactionIds()).thenReturn(retryTransactionIds);
+
+        // Mock the getTransactionInfos method to return a list of transactions
+        List<RetryTransaction> mockTransactions = Arrays.asList(retryTransaction, retryTransaction);
+        when(transactionService.getTransactionInfos(anyList())).thenReturn(mockTransactions);
+
+        // Mock the mapToOrderTransactionResponse method to return a response
+        when(viewOrdersService.mapToOrderTransactionResponse(retryOrder, mockTransactions)).thenReturn(orderTransactionResponse);
+
+        // Act
+        OrderTransactionResponse response = viewOrdersService.getOrderTransactions(orderId, kerberos);
+
+        // Assert
+        assertNotNull(response);
+        verify(retryOrderRepository, times(1)).findByOrderId(orderId);
+        verify(transactionService, times(1)).getTransactionInfos(anyList());
+        verify(viewOrdersService, times(1)).mapToOrderTransactionResponse(retryOrder, mockTransactions);
+    }
+
+    @Test
+    void testGetOrderTransactionsWithNotApprovedStatus() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "kerberos_token";
+        List<String> transactionIds = Arrays.asList("tx1", "tx2", "tx3");
+        List<String> retryTransactionIds = Arrays.asList("rtx1", "rtx2");
+
+        // Mock the retryOrderRepository and other necessary components
+        when(retryOrderRepository.findByOrderId(orderId)).thenReturn(Optional.of(retryOrder));
+        when(retryOrder.getStatus()).thenReturn("PENDING");
+        when(retryOrder.getTransactionIds()).thenReturn(transactionIds);
+        when(retryOrder.getRetryTransactionIds()).thenReturn(retryTransactionIds);
+
+        // Mock the getTransactionInfos method to return a list of transactions
+        List<RetryTransaction> mockTransactions = Arrays.asList(retryTransaction, retryTransaction);
+        when(transactionService.getTransactionInfos(anyList())).thenReturn(mockTransactions);
+
+        // Mock the mapToOrderTransactionResponse method to return a response
+        when(viewOrdersService.mapToOrderTransactionResponse(retryOrder, mockTransactions)).thenReturn(orderTransactionResponse);
+
+        // Act
+        OrderTransactionResponse response = viewOrdersService.getOrderTransactions(orderId, kerberos);
+
+        // Assert
+        assertNotNull(response);
+        verify(retryOrderRepository, times(1)).findByOrderId(orderId);
+        verify(transactionService, times(1)).getTransactionInfos(anyList());
+        verify(viewOrdersService, times(1)).mapToOrderTransactionResponse(retryOrder, mockTransactions);
+    }
+
+    @Test
+    void testGetOrderTransactionsThrowsExceptionWhenOrderNotFound() {
+        // Arrange
+        String orderId = "order123";
+        String kerberos = "kerberos_token";
+
+        // Mock the retryOrderRepository to return empty
+        when(retryOrderRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
+
+        // Act & Assert: Test that BadRequestException is thrown when order is not found
+        assertThrows(BadRequestException.class, () -> {
+            viewOrdersService.getOrderTransactions(orderId, kerberos);
+        });
+    }
+}
