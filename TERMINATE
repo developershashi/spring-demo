@@ -1,0 +1,186 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.util.CollectionUtils;
+
+import java.util.Arrays;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class RetryServiceImplTest {
+
+    @InjectMocks
+    private RetryServiceImpl retryService;
+
+    @Mock
+    private RetryTransaction retryTransaction;
+
+    @BeforeEach
+    void setUp() {
+        // Mock any dependencies if needed
+    }
+
+    @Test
+    void testValidateStatusWithEmptyList() {
+        // Act
+        retryService.validateStatus(Collections.emptyList());
+
+        // Assert: No exception thrown for empty list
+        // (just returns from the method)
+    }
+
+    @Test
+    void testValidateStatusWithValidStatus() {
+        // Arrange: Mock transactions where status is not FAILURE or ERROR
+        RetryTransaction transaction = mock(RetryTransaction.class);
+        when(transaction.getStatus()).thenReturn("SUCCESS");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction);
+
+        // Act: Call validateStatus
+        retryService.validateStatus(transactions);
+
+        // Assert: No exception thrown for valid status
+    }
+
+    @Test
+    void testValidateStatusWithFailureOrError() {
+        // Arrange: Mock transaction with FAILURE status
+        RetryTransaction transaction = mock(RetryTransaction.class);
+        when(transaction.getStatus()).thenReturn("FAILURE");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction);
+
+        // Act & Assert: Exception is thrown for FAILURE or ERROR status
+        assertThrows(BadRequestException.class, () -> {
+            retryService.validateStatus(transactions);
+        });
+    }
+
+    @Test
+    void testValidateFeedTypeWithEmptyList() {
+        // Act
+        retryService.validateFeedType(Collections.emptyList());
+
+        // Assert: No exception thrown for empty list
+    }
+
+    @Test
+    void testValidateFeedTypeWithDifferentFeeds() {
+        // Arrange: Mock transactions with different feed types
+        RetryTransaction transaction1 = mock(RetryTransaction.class);
+        RetryTransaction transaction2 = mock(RetryTransaction.class);
+        when(transaction1.getFeed()).thenReturn("Feed1");
+        when(transaction2.getFeed()).thenReturn("Feed2");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction1, transaction2);
+
+        // Act & Assert: Exception is thrown for different feeds
+        assertThrows(BadRequestException.class, () -> {
+            retryService.validateFeedType(transactions);
+        });
+    }
+
+    @Test
+    void testValidateFeedTypeWithSameFeed() {
+        // Arrange: Mock transactions with the same feed type
+        RetryTransaction transaction1 = mock(RetryTransaction.class);
+        RetryTransaction transaction2 = mock(RetryTransaction.class);
+        when(transaction1.getFeed()).thenReturn("Feed1");
+        when(transaction2.getFeed()).thenReturn("Feed1");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction1, transaction2);
+
+        // Act: Call validateFeedType
+        retryService.validateFeedType(transactions);
+
+        // Assert: No exception thrown for same feed
+    }
+
+    @Test
+    void testValidateMultipleStatusesWithEmptyList() {
+        // Act
+        retryService.validateMultipleStatuses(Collections.emptyList());
+
+        // Assert: No exception thrown for empty list
+    }
+
+    @Test
+    void testValidateMultipleStatusesWithDifferentStatuses() {
+        // Arrange: Mock transactions with different statuses
+        RetryTransaction transaction1 = mock(RetryTransaction.class);
+        RetryTransaction transaction2 = mock(RetryTransaction.class);
+        when(transaction1.getTransactionStatus()).thenReturn("OPEN");
+        when(transaction2.getTransactionStatus()).thenReturn("CLOSED");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction1, transaction2);
+
+        // Act & Assert: Exception is thrown for different statuses
+        assertThrows(BadRequestException.class, () -> {
+            retryService.validateMultipleStatuses(transactions);
+        });
+    }
+
+    @Test
+    void testValidateMultipleStatusesWithSameStatus() {
+        // Arrange: Mock transactions with the same status
+        RetryTransaction transaction1 = mock(RetryTransaction.class);
+        RetryTransaction transaction2 = mock(RetryTransaction.class);
+        when(transaction1.getTransactionStatus()).thenReturn("OPEN");
+        when(transaction2.getTransactionStatus()).thenReturn("OPEN");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction1, transaction2);
+
+        // Act: Call validateMultipleStatuses
+        retryService.validateMultipleStatuses(transactions);
+
+        // Assert: No exception thrown for same status
+    }
+
+    @Test
+    void testValidateTransactionsLimitWithValidLimit() {
+        // Arrange: Mock the transactions list with size less than or equal to limit
+        List<String> transactions = Arrays.asList("TX1", "TX2");
+
+        // Act: Call validateTransactionsLimit (assume limit is 3)
+        retryService.validateTransactionsLimit(transactions);
+
+        // Assert: No exception thrown for valid limit
+    }
+
+    @Test
+    void testValidateTransactionsLimitWithExceededLimit() {
+        // Arrange: Mock the transactions list with size greater than the limit
+        List<String> transactions = Arrays.asList("TX1", "TX2", "TX3", "TX4");
+
+        // Act & Assert: Exception is thrown when the limit is exceeded
+        assertThrows(BadRequestException.class, () -> {
+            retryService.validateTransactionsLimit(transactions);
+        });
+    }
+
+    @Test
+    void testExtractFeedTypeWithEmptyList() {
+        // Act & Assert: Exception is thrown for empty list
+        assertThrows(BadRequestException.class, () -> {
+            retryService.extractFeedType(Collections.emptyList());
+        });
+    }
+
+    @Test
+    void testExtractFeedTypeWithValidFeed() {
+        // Arrange: Mock transactions with a single valid feed
+        RetryTransaction transaction = mock(RetryTransaction.class);
+        when(transaction.getFeed()).thenReturn("Feed1");
+
+        List<RetryTransaction> transactions = Arrays.asList(transaction);
+
+        // Act: Call extractFeedType
+        String feed = retryService.extractFeedType(transactions);
+
+        // Assert: Correct feed type is extracted
+        assertEquals("Feed1", feed);
+    }
+}
