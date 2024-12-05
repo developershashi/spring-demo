@@ -1,0 +1,109 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.Optional;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class ResubmitOrdersControllerTest {
+
+    @Mock
+    private ResubmitOrdersService resubmitOrdersService;
+
+    @Mock
+    private ResubmitOrderMapper resubmitOrderMapper;
+
+    @InjectMocks
+    private ResubmitOrdersController resubmitOrdersController;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        mockMvc = MockMvcBuilders.standaloneSetup(resubmitOrdersController).build();
+    }
+
+    @Test
+    void testApproveOrder() throws Exception {
+        ReviewRequest approvePayload = new ReviewRequest("orderId123", "Approved");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        mockMvc.perform(post("/resubmit/orders/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(new javax.servlet.http.Cookie("GSSSO", gsssoToken))
+                        .content("{ \"orderId\": \"orderId123\", \"comments\": \"Approved\" }"))
+                .andExpect(status().isOk());
+
+        verify(resubmitOrdersService).approveOrder("orderId123", "Approved", "userKerberos");
+    }
+
+    @Test
+    void testRejectOrder() throws Exception {
+        ReviewRequest rejectPayload = new ReviewRequest("orderId456", "Rejected");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        mockMvc.perform(post("/resubmit/orders/reject")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(new javax.servlet.http.Cookie("GSSSO", gsssoToken))
+                        .content("{ \"orderId\": \"orderId456\", \"comments\": \"Rejected\" }"))
+                .andExpect(status().isOk());
+
+        verify(resubmitOrdersService).rejectOrder("orderId456", "Rejected", "userKerberos");
+    }
+
+    @Test
+    void testFreezeOrder() throws Exception {
+        ReviewRequest freezeRequest = new ReviewRequest("orderId789", "Freeze it");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        mockMvc.perform(post("/resubmit/orders/freeze")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(new javax.servlet.http.Cookie("GSSSO", gsssoToken))
+                        .content("{ \"orderId\": \"orderId789\", \"comments\": \"Freeze it\" }"))
+                .andExpect(status().isOk());
+
+        verify(resubmitOrdersService).freezeOrder("orderId789", "Freeze it", "userKerberos");
+    }
+
+    @Test
+    void testSaveOrder() throws Exception {
+        ResubmitOrderRequest saveRequest = new ResubmitOrderRequest("orderIdNew", "New order");
+        ResubmitOrder mappedOrder = new ResubmitOrder(); // Mock the mapped entity
+        when(resubmitOrderMapper.getNewResubmitOrderEntity(saveRequest)).thenReturn(mappedOrder);
+
+        mockMvc.perform(post("/resubmit/orders/save")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"orderId\": \"orderIdNew\", \"comments\": \"New order\" }"))
+                .andExpect(status().isOk());
+
+        verify(resubmitOrdersService).saveOrder(mappedOrder);
+    }
+
+    @Test
+    void testCancelOrder() throws Exception {
+        ResubmitCancelRequest cancelRequest = new ResubmitCancelRequest("orderIdCancel", List.of("trans123"), "Cancel it");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        mockMvc.perform(post("/resubmit/orders/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(new javax.servlet.http.Cookie("GSSSO", gsssoToken))
+                        .content("{ \"orderId\": \"orderIdCancel\", \"resubmitTransactionIds\": [\"trans123\"], \"comments\": \"Cancel it\" }"))
+                .andExpect(status().isOk());
+
+        verify(resubmitOrdersService).cancelOrder("orderIdCancel", List.of("trans123"), "Cancel it", "userKerberos");
+    }
+}
