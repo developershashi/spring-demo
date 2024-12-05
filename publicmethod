@@ -1,0 +1,104 @@
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.List;
+import java.util.Optional;
+
+class TerminateOrderServiceImplTest {
+
+    @InjectMocks
+    private TerminateOrderServiceImpl terminateOrderService;
+
+    @Mock
+    private TerminateOrderRepository terminateOrderRepository;
+
+    @Mock
+    private RetryTransactionRepository retryTransactionRepository;
+
+    @Mock
+    private TerminateOrder terminateOrder;
+
+    @Mock
+    private RetryTransaction retryTransaction;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testCreateTerminateOrder() {
+        // Arrange
+        TerminateOrderRequest orderRequest = new TerminateOrderRequest();
+        String kerberos = "testUser";
+        String expectedOrderId = "order123";
+
+        doReturn(expectedOrderId).when(terminateOrderService).createAndSaveTerminateOrder(orderRequest, kerberos);
+
+        // Act
+        String orderId = terminateOrderService.createTerminateOrder(orderRequest, kerberos);
+
+        // Assert
+        assertEquals(expectedOrderId, orderId);
+        verify(terminateOrderService, times(1)).createAndSaveTerminateOrder(orderRequest, kerberos);
+    }
+
+    @Test
+    void testCancelTerminateOrder() {
+        // Arrange
+        String orderId = "order123";
+        String comments = "Cancelling order";
+        String kerberos = "testUser";
+        List<String> originalTransactionIds = List.of("tx1", "tx2");
+
+        when(terminateOrderService.validateOrderId(orderId)).thenReturn(terminateOrder);
+        when(terminateOrder.getOriginalTransactionIds()).thenReturn(originalTransactionIds);
+
+        // Act
+        String result = terminateOrderService.cancelTerminateOrder(orderId, comments, kerberos);
+
+        // Assert
+        assertEquals(orderId, result);
+        verify(terminateOrderService, times(1)).validateOrderId(orderId);
+        verify(terminateOrderService, times(1)).updateTerminateCancelOrder(comments, kerberos, terminateOrder);
+        verify(terminateOrderService, times(1)).rollbackOriginalTransactionStatus(originalTransactionIds);
+    }
+
+    @Test
+    void testUpdateOriginalTransactionInfo() {
+        // Arrange
+        RetryTransaction transaction1 = new RetryTransaction();
+        RetryTransaction transaction2 = new RetryTransaction();
+        List<RetryTransaction> transactions = List.of(transaction1, transaction2);
+
+        // Act
+        terminateOrderService.updateOriginalTransactionInfo(transactions);
+
+        // Assert
+        assertEquals(ResubmitStatus.SUBMIT_FOR_TERMINATE.getStatus(), transaction1.getTransactionStatus());
+        assertEquals(ResubmitStatus.SUBMIT_FOR_TERMINATE.getStatus(), transaction2.getTransactionStatus());
+        assertTrue(transaction1.isRetried());
+        assertTrue(transaction2.isRetried());
+        verify(retryTransactionRepository, times(1)).saveAll(transactions);
+    }
+
+    @Test
+    void testGetTerminateOrderApprovalCount() {
+        // Arrange
+        long expectedCount = 5L;
+        when(terminateOrderRepository.countByStatus(RetryConstants.OPEN)).thenReturn(expectedCount);
+
+        // Act
+        long count = terminateOrderService.getTerminateOrderApprovalCount();
+
+        // Assert
+        assertEquals(expectedCount, count);
+        verify(terminateOrderRepository, times(1)).countByStatus(RetryConstants.OPEN);
+    }
+}
