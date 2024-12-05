@@ -1,0 +1,40 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@SpringBootTest
+class ConfigControllerTest {
+
+    // Injecting values from the application.properties
+    @Value("${max-size.download:100}")
+    private int maxDownloadSize;
+
+    @Value("${max.size.retry:50}")
+    private int maxRetrySize;
+
+    @Value("${max.size.terminate:25}")
+    private int maxTerminateSize;
+
+    @Autowired
+    private ConfigController configController; // Let Spring inject this dependency
+
+    @Test
+    void testGetConfigDetails() {
+        // Act
+        ResponseEntity<ConfigResponse> response = configController.getConfigDetails();
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        ConfigResponse configResponse = response.getBody();
+        assertEquals(maxDownloadSize, configResponse.getMaxDownloadLimit());
+        assertEquals(maxRetrySize, configResponse.getMaxRetryLimit());
+        assertEquals(maxTerminateSize, configResponse.getMaxTerminateLimit());
+    }
+}
