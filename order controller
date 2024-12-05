@@ -1,0 +1,73 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.ResponseEntity;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+class OrdersControllerTest {
+
+    @Mock
+    private OrdersService ordersService;
+
+    @InjectMocks
+    private OrdersController ordersController;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    // Test for approve method
+    @Test
+    void testApprove() {
+        // Arrange
+        ReviewRequest approvePayload = new ReviewRequest("order123", "Approve this order");
+        String gsssoToken = "dummyGsssoToken";
+        String kerberos = "userKerberos";
+
+        // Mock the Kerberos utility behavior
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of(kerberos));
+
+        // Act
+        ResponseEntity<ActionResponse> response = ordersController.approve(approvePayload, gsssoToken);
+
+        // Assert
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Order approved successfully", response.getBody().getMessage());
+        verify(ordersService, times(1)).approveOrder(
+                approvePayload.getOrderId(),
+                approvePayload.getComments(),
+                kerberos
+        );
+    }
+
+    // Test for reject method
+    @Test
+    void testReject() {
+        // Arrange
+        ReviewRequest rejectPayload = new ReviewRequest("order456", "Reject this order");
+        String gsssoToken = "dummyGsssoToken";
+        String kerberos = "userKerberos";
+
+        // Mock the Kerberos utility behavior
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of(kerberos));
+
+        // Act
+        ResponseEntity<ActionResponse> response = ordersController.reject(rejectPayload, gsssoToken);
+
+        // Assert
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Order rejected successfully", response.getBody().getMessage());
+        verify(ordersService, times(1)).rejectOrder(
+                rejectPayload.getOrderId(),
+                rejectPayload.getComments(),
+                kerberos
+        );
+    }
+}
