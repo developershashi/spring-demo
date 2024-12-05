@@ -1,0 +1,188 @@
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.util.CollectionUtils;
+
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+
+class PermitAuthServiceImplTest {
+
+    @InjectMocks
+    private PermitAuthServiceImpl permitAuthService;
+
+    @Mock
+    private PermitService permitService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testGetRoles_ValidKerberos() {
+        // Arrange
+        String gsssoToken = "validToken";
+        Optional<String> kerberos = Optional.of("testKerberos");
+        List<LinkedHashMap> expectedRoles = List.of(new LinkedHashMap<>());
+        
+        // Mock internal calls
+        doReturn(kerberos).when(permitAuthService).getKerberosFromGSSSO(gsssoToken);
+        when(permitService.getUserRolesByKerberos(kerberos.get())).thenReturn(expectedRoles);
+
+        // Act
+        List<LinkedHashMap> roles = permitAuthService.getRoles(gsssoToken);
+
+        // Assert
+        assertEquals(expectedRoles, roles);
+        verify(permitService, times(1)).getUserRolesByKerberos(kerberos.get());
+    }
+
+    @Test
+    void testGetRoles_EmptyKerberos() {
+        // Arrange
+        String gsssoToken = "validToken";
+        Optional<String> kerberos = Optional.empty();
+
+        // Mock internal calls
+        doReturn(kerberos).when(permitAuthService).getKerberosFromGSSSO(gsssoToken);
+
+        // Act
+        List<LinkedHashMap> roles = permitAuthService.getRoles(gsssoToken);
+
+        // Assert
+        assertTrue(roles.isEmpty());
+        verify(permitService, never()).getUserRolesByKerberos(anyString());
+    }
+
+    @Test
+    void testHasRpsEadApproveRole_ValidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "RPS_EAD_APPROVE_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadApproveRole("token", userRoles);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    void testHasRpsEadApproveRole_InvalidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "OTHER_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadApproveRole("token", userRoles);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    void testHasRpsEadApproveRole_EmptyRoles() {
+        // Arrange
+        List<LinkedHashMap> userRoles = Collections.emptyList();
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadApproveRole("token", userRoles);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    void testHasRpsEadDownloadRole_ValidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "RPS_EAD_DOWNLOAD_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadDownloadRole("token", userRoles);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    void testHasRpsEadDownloadRole_InvalidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "OTHER_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadDownloadRole("token", userRoles);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    void testHasRpsEadRetryRole_ValidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "RPS_EAD_SUBMIT_RETRY_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadRetryRole("token", userRoles);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    void testHasRpsEadRetryRole_InvalidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "OTHER_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadRetryRole("token", userRoles);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    void testHasRpsEadViewListRole_ValidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "RPS_EAD_VIEW_LIST_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadViewListRole("token", userRoles);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    void testHasRpsEadViewListRole_InvalidRole() {
+        // Arrange
+        List<LinkedHashMap> userRoles = List.of(
+                new LinkedHashMap<>(Collections.singletonMap("role", "OTHER_ROLE"))
+        );
+
+        // Act
+        boolean result = permitAuthService.hasRpsEadViewListRole("token", userRoles);
+
+        // Assert
+        assertFalse(result);
+    }
+}
