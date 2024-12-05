@@ -1,0 +1,104 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+class ResubmitOrdersControllerTest {
+
+    @Mock
+    private ResubmitOrdersService resubmitOrdersService;
+
+    @Mock
+    private ResubmitOrderMapper resubmitOrderMapper;
+
+    @InjectMocks
+    private ResubmitOrdersController resubmitOrdersController;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testApproveOrder() {
+        // Arrange
+        ReviewRequest approvePayload = new ReviewRequest("orderId123", "Approved");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        // Act
+        ResponseEntity<ActionResponse> response = resubmitOrdersController.approve(approvePayload, gsssoToken);
+
+        // Assert
+        assertEquals("Order approved successfully", response.getBody().getMessage());
+        verify(resubmitOrdersService).approveOrder("orderId123", "Approved", "userKerberos");
+    }
+
+    @Test
+    void testRejectOrder() {
+        // Arrange
+        ReviewRequest rejectPayload = new ReviewRequest("orderId456", "Rejected");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        // Act
+        ResponseEntity<ActionResponse> response = resubmitOrdersController.reject(rejectPayload, gsssoToken);
+
+        // Assert
+        assertEquals("Order rejected successfully", response.getBody().getMessage());
+        verify(resubmitOrdersService).rejectOrder("orderId456", "Rejected", "userKerberos");
+    }
+
+    @Test
+    void testFreezeOrder() {
+        // Arrange
+        ReviewRequest freezeRequest = new ReviewRequest("orderId789", "Freeze it");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        // Act
+        ResponseEntity<ActionResponse> response = resubmitOrdersController.freeze(freezeRequest, gsssoToken);
+
+        // Assert
+        assertEquals("Order freezed successfully", response.getBody().getMessage());
+        verify(resubmitOrdersService).freezeOrder("orderId789", "Freeze it", "userKerberos");
+    }
+
+    @Test
+    void testSaveOrder() {
+        // Arrange
+        ResubmitOrderRequest saveRequest = new ResubmitOrderRequest("orderIdNew", "New order");
+        ResubmitOrder mappedOrder = new ResubmitOrder();
+        when(resubmitOrderMapper.getNewResubmitOrderEntity(saveRequest)).thenReturn(mappedOrder);
+
+        // Act
+        ResponseEntity<ActionResponse> response = resubmitOrdersController.save(saveRequest);
+
+        // Assert
+        assertEquals("Order created successfully", response.getBody().getMessage());
+        verify(resubmitOrdersService).saveOrder(mappedOrder);
+    }
+
+    @Test
+    void testCancelOrder() {
+        // Arrange
+        ResubmitCancelRequest cancelRequest = new ResubmitCancelRequest("orderIdCancel", List.of("trans123"), "Cancel it");
+        String gsssoToken = "dummyToken";
+        when(KerberosUtil.getUserKerberos(gsssoToken)).thenReturn(Optional.of("userKerberos"));
+
+        // Act
+        ResponseEntity<ActionResponse> response = resubmitOrdersController.cancel(cancelRequest, gsssoToken);
+
+        // Assert
+        assertEquals("Order canceled successfully", response.getBody().getMessage());
+        verify(resubmitOrdersService).cancelOrder("orderIdCancel", List.of("trans123"), "Cancel it", "userKerberos");
+    }
+}
