@@ -1,0 +1,64 @@
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+class DateUtilsTest {
+
+    @Test
+    void testConvertStringToDate_NullInput() throws Exception {
+        Date result = DateUtils.convertStringToDate(null, false);
+        assertNull(result, "Expected null when input is null");
+    }
+
+    @Test
+    void testConvertStringToDate_EmptyInput() throws Exception {
+        Date result = DateUtils.convertStringToDate("", false);
+        assertNull(result, "Expected null when input is an empty string");
+    }
+
+    @Test
+    void testConvertStringToDate_ValidInput_StartOfDay() throws Exception {
+        String dateString = "2024-12-11";
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+
+        Date result = DateUtils.convertStringToDate(dateString, false);
+
+        assertEquals(sdf.parse(dateString), result, "Expected parsed date at start of day in UTC");
+    }
+
+    @Test
+    void testConvertStringToDate_ValidInput_EndOfDay() throws Exception {
+        String dateString = "2024-12-11";
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+
+        Date result = DateUtils.convertStringToDate(dateString, true);
+
+        Date expectedDate = sdf.parse("2024-12-11 23:59:59.999");
+        assertEquals(expectedDate, result, "Expected parsed date at end of day in UTC");
+    }
+
+    @Test
+    void testConvertStringToDate_InvalidFormat() {
+        String invalidDateString = "12-11-2024";
+
+        Exception exception = assertThrows(Exception.class, () -> {
+            DateUtils.convertStringToDate(invalidDateString, false);
+        });
+
+        assertTrue(exception.getMessage().contains("Unparseable date"), "Expected parse exception for invalid date format");
+    }
+
+    @Test
+    void testConvertStringToDate_InvalidDate() {
+        String invalidDateString = "2024-02-30"; // Invalid date
+
+        Exception exception = assertThrows(Exception.class, () -> {
+            DateUtils.convertStringToDate(invalidDateString, false);
+        });
+
+        assertTrue(exception.getMessage().contains("Unparseable date"), "Expected parse exception for invalid date");
+    }
+}
