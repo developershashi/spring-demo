@@ -1,0 +1,76 @@
+package com.example.retryorders;
+
+import com.example.retryorders.controller.OrdersController;
+import com.example.retryorders.service.OrdersService;
+import com.example.retryorders.dto.ActionResponse;
+import com.example.retryorders.dto.ReviewRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(OrdersController.class)
+public class OrdersControllerIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private OrdersService ordersService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    @WithMockUser(roles = "RPS_EAD_APPROVE")
+    public void testApproveOrder() throws Exception {
+        // Arrange
+        ReviewRequest approvePayload = new ReviewRequest();
+        approvePayload.setOrderId("12345");
+        approvePayload.setComments("Approved order.");
+
+        Mockito.doNothing().when(ordersService)
+                .approveOrder(eq("12345"), eq("Approved order."), any());
+
+        // Act & Assert
+        mockMvc.perform(post("/retry/orders/approve")
+                .cookie(new javax.servlet.http.Cookie("GSSSO", "mockToken"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(approvePayload)))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"message\":\"Order approved successfully\"}"));
+    }
+
+    @Test
+    @WithMockUser(roles = "RPS_EAD_APPROVE")
+    public void testRejectOrder() throws Exception {
+        // Arrange
+        ReviewRequest rejectPayload = new ReviewRequest();
+        rejectPayload.setOrderId("54321");
+        rejectPayload.setComments("Rejected order.");
+
+        Mockito.doNothing().when(ordersService)
+                .rejectOrder(eq("54321"), eq("Rejected order."), any());
+
+        // Act & Assert
+        mockMvc.perform(post("/retry/orders/reject")
+                .cookie(new javax.servlet.http.Cookie("GSSSO", "mockToken"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(rejectPayload)))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"message\":\"Order rejected successfully\"}"));
+    }
+}
