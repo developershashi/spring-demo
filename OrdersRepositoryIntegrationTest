@@ -1,0 +1,37 @@
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+
+import com.example.retryorders.entity.Order;
+import com.example.retryorders.repository.OrderRepository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@SpringBootTest
+@Import(MongoTestConfig.class)
+public class OrdersRepositoryIntegrationTest {
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Test
+    public void testSaveAndRetrieveOrder() {
+        // Arrange
+        Order order = new Order();
+        order.setId("1");
+        order.setStatus("APPROVED");
+
+        // Act
+        orderRepository.save(order);
+        Order retrievedOrder = mongoTemplate.findById("1", Order.class);
+
+        // Assert
+        assertEquals("APPROVED", retrievedOrder.getStatus());
+    }
+}
