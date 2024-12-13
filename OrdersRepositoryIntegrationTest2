@@ -1,0 +1,31 @@
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import com.example.retryorders.entity.Order;
+import com.example.retryorders.repository.OrderRepository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@SpringBootTest
+@Import(MongoTestContainersConfig.class)
+public class OrdersRepositoryIntegrationTest {
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Test
+    public void testSaveAndRetrieveOrder() {
+        // Arrange
+        Order order = new Order();
+        order.setId("1");
+        order.setStatus("APPROVED");
+
+        // Act
+        orderRepository.save(order);
+        Order retrievedOrder = orderRepository.findById("1").orElse(null);
+
+        // Assert
+        assertEquals("APPROVED", retrievedOrder.getStatus());
+    }
+}
