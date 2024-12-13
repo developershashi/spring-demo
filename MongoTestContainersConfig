@@ -1,0 +1,30 @@
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import org.testcontainers.containers.MongoDBContainer;
+
+@TestConfiguration
+@EnableMongoRepositories(basePackages = "com.example.repository")
+public class MongoTestContainersConfig {
+
+    private static final MongoDBContainer MONGO_DB_CONTAINER;
+
+    static {
+        MONGO_DB_CONTAINER = new MongoDBContainer("mongo:5.0.5");
+        MONGO_DB_CONTAINER.start();
+    }
+
+    @Bean
+    public MongoClient mongoClient() {
+        return MongoClients.create(MONGO_DB_CONTAINER.getReplicaSetUrl());
+    }
+
+    @Bean
+    public MongoTemplate mongoTemplate(MongoClient mongoClient) {
+        return new MongoTemplate(mongoClient, "test");
+    }
+}
