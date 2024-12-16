@@ -1,0 +1,164 @@
+1. Add Required Dependencies
+Add the following dependencies in your build.gradle file:
+
+gradle
+Copy code
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+
+    testImplementation 'de.flapdoodle.embed:de.flapdoodle.embed.mongo' // Embedded MongoDB for tests
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter' // JUnit 5
+}
+2. Create application-test.yml or application-test.properties
+In the src/test/resources directory, create an application configuration file to specify test-related properties.
+
+application-test.yml
+yaml
+Copy code
+spring:
+  data:
+    mongodb:
+      database: test # Name of the database
+      port: 0        # Use a random available port
+      host: localhost
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  logging:
+    level:
+      org:
+        springframework:
+          boot:
+            autoconfigure:
+              mongo:
+                embedded: OFF # Disable verbose embedded MongoDB logs
+      mongodb: OFF
+application-test.properties (alternative to YAML)
+properties
+Copy code
+spring.data.mongodb.database=test
+spring.data.mongodb.port=0
+spring.data.mongodb.host=localhost
+
+spring.jpa.hibernate.ddl-auto=create-drop
+
+logging.level.org.springframework.boot.autoconfigure.mongo.embedded=OFF
+logging.level.org.mongodb=OFF
+3. Test Using Embedded MongoDB
+When using the @DataMongoTest annotation, Spring Boot automatically initializes and manages an embedded MongoDB instance for testing. Here's an example test class:
+
+Spring Boot Test Example
+java
+Copy code
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.data.mongodb.core.MongoTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataMongoTest
+public class MongoDbSpringIntegrationTest {
+
+    @DisplayName("given object to save when saved with MongoTemplate then it should be retrievable")
+    @Test
+    public void testMongoDb(@Autowired MongoTemplate mongoTemplate) {
+        // given
+        var document = Map.of("key", "value");
+
+        // when
+        mongoTemplate.save(document, "collection");
+
+        // then
+        var results = mongoTemplate.findAll(Map.class, "collection");
+        assertThat(results).extracting("key").containsOnly("value");
+    }
+}
+Annotations:
+@DataMongoTest: Automatically sets up the MongoDB environment.
+@Autowired: Injects MongoTemplate to interact with the database.
+4. Manual Configuration Example
+If you need more control (e.g., specifying the MongoDB version or port), manually configure the embedded MongoDB instance.
+
+Manual Embedded MongoDB Configuration Example
+java
+Copy code
+import com.mongodb.client.MongoClients;
+import de.flapdoodle.embed.mongo.MongodExecutable;
+import de.flapdoodle.embed.mongo.MongodStarter;
+import de.flapdoodle.embed.mongo.config.ImmutableMongodConfig;
+import de.flapdoodle.embed.mongo.config.MongodConfig;
+import de.flapdoodle.embed.mongo.config.Net;
+import de.flapdoodle.embed.process.runtime.Network;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.mongodb.core.MongoTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class ManualEmbeddedMongoDbIntegrationTest {
+    private MongodExecutable mongodExecutable;
+    private MongoTemplate mongoTemplate;
+
+    @BeforeEach
+    void setup() throws Exception {
+        String ip = "localhost";
+        int port = 27017;
+
+        ImmutableMongodConfig mongodConfig = MongodConfig.builder()
+                .version(de.flapdoodle.embed.mongo.distribution.Version.Main.PRODUCTION)
+                .net(new Net(ip, port, Network.localhostIsIPv6()))
+                .build();
+
+        MongodStarter starter = MongodStarter.getDefaultInstance();
+        mongodExecutable = starter.prepare(mongodConfig);
+        mongodExecutable.start();
+
+        mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://" + ip + ":" + port), "test");
+    }
+
+    @AfterEach
+    void clean() {
+        mongodExecutable.stop();
+    }
+
+    @DisplayName("given object to save when save object using MongoTemplate then object is saved")
+    @Test
+    void testMongoDb() {
+        // given
+        var document = Map.of("key", "value");
+
+        // when
+        mongoTemplate.save(document, "collection");
+
+        // then
+        var results = mongoTemplate.findAll(Map.class, "collection");
+        assertThat(results).extracting("key").containsOnly("value");
+    }
+}
+5. Configure Logging (Optional)
+To disable verbose logs for embedded MongoDB, add these properties to your application-test.properties or application-test.yml:
+
+properties
+Copy code
+logging.level.org.springframework.boot.autoconfigure.mongo.embedded=OFF
+logging.level.org.mongodb=OFF
+6. Use a Real MongoDB in Production
+In production, simply omit the de.flapdoodle.embed.mongo dependency and configure your real MongoDB server details in the application.yml:
+
+yaml
+Copy code
+spring:
+  data:
+    mongodb:
+      host: <PRODUCTION_DB_HOST>
+      port: <PRODUCTION_DB_PORT>
+      database: <PRODUCTION_DB_NAME>
+You can switch between profiles (test or prod) by activating them using:
+
+Environment variable: spring.profiles.active=test
+JVM option: -Dspring.profiles.active=test
