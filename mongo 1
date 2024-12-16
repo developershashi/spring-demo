@@ -1,0 +1,36 @@
+application-test.yml
+yaml
+Copy code
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop # Automatically create and drop schema for tests
+    show-sql: true # Show SQL in logs for debugging
+  test:
+    database:
+      platform: H2 # Use an in-memory database for tests
+
+logging:
+  level:
+    root: WARN
+    org.springframework: DEBUG
+
+
+application-test.properties
+properties
+Copy code
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.username=sa
+spring.datasource.password=
+spring.datasource.driver-class-name=org.h2.Driver
+
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+
+logging.level.root=WARN
+logging.level.org.springframework=DEBUG
