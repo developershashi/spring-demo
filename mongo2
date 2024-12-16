@@ -1,0 +1,140 @@
+Example Integration Test for TerminateServiceImpl
+java
+Copy code
+@SpringBootTest
+@AutoConfigureDataMongo
+class TerminateServiceImplTest {
+
+    @Autowired
+    private TerminateOrderRepository terminateOrderRepository;
+
+    @Autowired
+    private RetryTransactionRepository retryTransactionRepository;
+
+    @Autowired
+    private TerminateServiceImpl terminateService;
+
+    @BeforeEach
+    void setUp() {
+        terminateOrderRepository.deleteAll();
+        retryTransactionRepository.deleteAll();
+    }
+
+    @Test
+    void testGetOrderById() {
+        // Arrange
+        TerminateOrder order = new TerminateOrder();
+        order.setOrderId("order123");
+        order.setStatus("OPEN");
+        terminateOrderRepository.save(order);
+
+        // Act
+        Optional<TerminateOrder> result = terminateService.getOrderById("order123");
+
+        // Assert
+        assertThat(result).isPresent();
+        assertThat(result.get().getOrderId()).isEqualTo("order123");
+    }
+
+    @Test
+    void testGetTransactionInfo() {
+        // Arrange
+        RetryTransaction transaction1 = new RetryTransaction();
+        transaction1.setTransactionId("txn123");
+        transaction1.setTransactionStatus("PENDING");
+        retryTransactionRepository.save(transaction1);
+
+        RetryTransaction transaction2 = new RetryTransaction();
+        transaction2.setTransactionId("txn124");
+        transaction2.setTransactionStatus("PENDING");
+        retryTransactionRepository.save(transaction2);
+
+        List<String> transactionIds = List.of("txn123", "txn124");
+
+        // Act
+        List<RetryTransaction> transactions = terminateService.getTransactionInfo(transactionIds);
+
+        // Assert
+        assertThat(transactions).hasSize(2);
+        assertThat(transactions).extracting(RetryTransaction::getTransactionId)
+                                .containsExactlyInAnyOrder("txn123", "txn124");
+    }
+}
+Example Integration Test for OrdersServiceImpl
+java
+Copy code
+@SpringBootTest
+@AutoConfigureDataMongo
+class OrdersServiceImplTest {
+
+    @Autowired
+    private RetryTransactionRepository retryTransactionRepository;
+
+    @Autowired
+    private RetryOrderRepository retryOrderRepository;
+
+    @Autowired
+    private OrdersServiceImpl ordersService;
+
+    @BeforeEach
+    void setUp() {
+        retryTransactionRepository.deleteAll();
+        retryOrderRepository.deleteAll();
+    }
+
+    @Test
+    void testApproveOrder() {
+        // Arrange
+        RetryOrder retryOrder = new RetryOrder();
+        retryOrder.setOrderId("order123");
+        retryOrder.setSubmittedBy("userA");
+        retryOrder.setTransactionIds(List.of("txn123"));
+        retryOrder.setStatus("OPEN");
+        retryOrderRepository.save(retryOrder);
+
+        RetryTransaction transaction = new RetryTransaction();
+        transaction.setTransactionId("txn123");
+        transaction.setTransactionStatus("PENDING");
+        retryTransactionRepository.save(transaction);
+
+        // Act
+        ordersService.approveOrder("order123", "Approved by userB", "userB");
+
+        // Assert
+        RetryOrder updatedOrder = retryOrderRepository.findByOrderIdAndStatus("order123", "APPROVED")
+                                                       .orElse(null);
+        assertThat(updatedOrder).isNotNull();
+        assertThat(updatedOrder.getReviewedBy()).isEqualTo("userB");
+
+        List<RetryTransaction> updatedTransactions = retryTransactionRepository.findByTransactionIdIn(List.of("txn123"));
+        assertThat(updatedTransactions).allMatch(txn -> txn.getTransactionStatus().equals("RETRY_FOR_DORMANT"));
+    }
+
+    @Test
+    void testRejectOrder() {
+        // Arrange
+        RetryOrder retryOrder = new RetryOrder();
+        retryOrder.setOrderId("order456");
+        retryOrder.setSubmittedBy("userA");
+        retryOrder.setTransactionIds(List.of("txn123"));
+        retryOrder.setStatus("OPEN");
+        retryOrderRepository.save(retryOrder);
+
+        RetryTransaction transaction = new RetryTransaction();
+        transaction.setTransactionId("txn123");
+        transaction.setTransactionStatus("PENDING");
+        retryTransactionRepository.save(transaction);
+
+        // Act
+        ordersService.rejectOrder("order456", "Rejected by userB", "userB");
+
+        // Assert
+        RetryOrder updatedOrder = retryOrderRepository.findByOrderIdAndStatus("order456", "REJECTED")
+                                                       .orElse(null);
+        assertThat(updatedOrder).isNotNull();
+        assertThat(updatedOrder.getComments()).isEqualTo("Rejected by userB");
+
+        List<RetryTransaction> updatedTransactions = retryTransactionRepository.findByTransactionIdIn(List.of("txn123"));
+        assertThat(updatedTransactions).allMatch(txn -> txn.getTransactionStatus().equals("FAILURE"));
+    }
+}
