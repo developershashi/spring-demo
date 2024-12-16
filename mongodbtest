@@ -1,0 +1,128 @@
+2. Configure Embedded MongoDB
+You can configure Embedded MongoDB in your test class or a test configuration file.
+
+Example: Setting up MongoDB for Spring Boot Tests
+src/test/java/com/example/test/EmbeddedMongoConfig.java:
+
+java
+Copy code
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
+
+@TestConfiguration
+public class EmbeddedMongoConfig {
+
+    @Bean
+    public MongoTemplate mongoTemplate() {
+        return new MongoTemplate(new SimpleMongoClientDatabaseFactory("mongodb://localhost:27017/test"));
+    }
+}
+3. Write Test Class
+Here’s how to use the embedded MongoDB in a JUnit test.
+
+Example: Repository Test
+java
+Copy code
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.test.context.ContextConfiguration;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataMongoTest
+@ContextConfiguration(classes = EmbeddedMongoConfig.class)
+class UserRepositoryTest {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Test
+    void testSaveAndFindAll() {
+        // Given
+        User user = new User("1", "John Doe", "john.doe@example.com");
+        userRepository.save(user);
+
+        // When
+        List<User> users = userRepository.findAll();
+
+        // Then
+        assertThat(users).hasSize(1);
+        assertThat(users.get(0).getName()).isEqualTo("John Doe");
+    }
+}
+4. Preloading Test Data
+To preload data into the in-memory MongoDB during tests, you can use data.json or programmatically initialize it.
+
+Using data.json:
+src/test/resources/data.json:
+
+json
+Copy code
+[
+  {
+    "_id": "1",
+    "name": "John Doe",
+    "email": "john.doe@example.com"
+  },
+  {
+    "_id": "2",
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com"
+  }
+]
+Load it in your test class:
+
+java
+Copy code
+@Autowired
+private MongoTemplate mongoTemplate;
+
+@BeforeEach
+void setUp() {
+    mongoTemplate.dropCollection("users");
+    mongoTemplate.insertAll(List.of(
+        new User("1", "John Doe", "john.doe@example.com"),
+        new User("2", "Jane Smith", "jane.smith@example.com")
+    ));
+}
+5. Example with Spring Boot Annotations
+Spring Boot offers an easy way to use embedded MongoDB.
+
+Add the Testcontainers dependency (if preferred):
+
+xml
+Copy code
+<dependency>
+    <groupId>org.testcontainers</groupId>
+    <artifactId>mongodb</artifactId>
+    <scope>test</scope>
+</dependency>
+Annotate your test class:
+
+java
+Copy code
+@SpringBootTest
+@Testcontainers
+@AutoConfigureDataMongo
+class UserRepositoryTest {
+    @Container
+    static MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:5.0.6");
+    
+    @DynamicPropertySource
+    static void setProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
+    }
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Test
+    void testSaveAndFindAll() {
+        // Test logic here
+    }
+}
