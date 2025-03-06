@@ -1,0 +1,145 @@
+1. Overview
+
+This document explains the functionality of the getAccountsPermittedForBroker API and its related components. The API is responsible for fetching account details that are permitted to trade with a given broker in the RADAR system.
+
+2. API Details
+
+Endpoint:
+
+GET /permittedaccounts
+
+Parameters:
+
+brokerRadarId (QueryParam, required) - The ID of the broker.
+
+productType (QueryParam, required) - The type of product.
+
+Consumes & Produces:
+
+Consumes: application/json
+
+Produces: application/json
+
+Response Codes:
+
+200 OK - Returns a list of permitted accounts.
+
+400 BAD REQUEST - When brokerRadarId or productType is invalid.
+
+500 INTERNAL SERVER ERROR - If any unexpected error occurs.
+
+3. Code Explanation
+
+API Method: getAccountsPermittedForBroker
+
+@GET
+@Path("/permittedaccounts")
+@Consumes(APPLICATION_JSON)
+@Produces(APPLICATION_JSON)
+@ManagedAsync
+public Response getAccountsPermittedForBroker(
+    @QueryParam("brokerRadarId") String brokerRadarId,
+    @QueryParam("productType") String productType) {
+    try {
+        if (brokerRadarId == null || brokerRadarId.isEmpty()) {
+            return Response.status(Status.BAD_REQUEST).entity("brokerRadarId is null! Please check").build();
+        }
+        try {
+            ProductType.valueOf(productType);
+        } catch (IllegalArgumentException e) {
+            return Response.status(Status.BAD_REQUEST).entity("productType isn't valid. Please check").build();
+        }
+        List<AccountDetail> accounts = brokerServiceDelegate.getAccountsPermittedForBroker(
+            Integer.valueOf(brokerRadarId), ProductType.valueOf(productType));
+        if (accounts != null) {
+            return Response.ok(accounts).build();
+        } else {
+            return Response.status(Status.BAD_REQUEST).entity("Product Type doesn't support this API call").build();
+        }
+    } catch (Exception e) {
+        Logger.error(e.getMessage(), e);
+        String errorMsg = String.format("Could not find permitted accounts list for given broker id [%s]", brokerRadarId);
+        return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errorMsg).build();
+    }
+}
+
+Step-by-Step Execution:
+
+The API accepts brokerRadarId and productType as query parameters.
+
+It validates if brokerRadarId is provided. If missing, it returns a 400 BAD REQUEST.
+
+It checks if the provided productType is valid using ProductType.valueOf(productType). If invalid, another 400 BAD REQUEST is returned.
+
+It calls brokerServiceDelegate.getAccountsPermittedForBroker to fetch permitted accounts.
+
+If valid accounts are found, it returns 200 OK with the account details.
+
+If accounts are null, it returns 400 BAD REQUEST stating the product type is not supported.
+
+If any unexpected error occurs, it logs the error and returns 500 INTERNAL SERVER ERROR.
+
+4. Datasource Usage
+
+The API retrieves data using the RadarAccountsPerBrokerDAO class, which fetches data from the Radar database.
+
+public List<AccountDetail> getAccountsPermittedForBroker(Integer brokerId, ProductType productType) {
+    return radarDaoFactory.getRadarAccountsPerBrokerDAO(productType).find(brokerId, productType);
+}
+
+The RadarAccountsPerBrokerDAO interacts with the database to fetch account details for a given broker and product type.
+
+5. Cache Usage
+
+There are methods in RadarAccountDetailFinder that indicate caching:
+
+public static RadarAccountDetailList findMany(Operation operation) {
+    return (RadarAccountDetailList) finder.findMany(operation);
+}
+
+public static RadarAccountDetailList findManyBypassCache(Operation operation) {
+    return (RadarAccountDetailList) finder.findManyBypassCache(operation);
+}
+
+findMany() fetches data from cache.
+
+findManyBypassCache() fetches fresh data from the database.
+
+6. Supporting Methods & Classes
+
+RadarAccountsPerBrokerDAO
+
+This class contains the logic for fetching broker account details based on product type:
+
+public RadarAccountsPerBrokerDAO getRadarAccountsPerBrokerDAO(ProductType productType) {
+    if (relatedInstrumentsAndBrokersTab().contains(productType) ||
+        relatedInstrumentsAndBrokersTab_NullProductType().contains(productType)) {
+        return new RadarAccountsPerBrokerDAO(classificationMapping, productTypeMapping);
+    } else {
+        throw new IllegalArgumentException("Get Accounts for Broker call is not supported for this product type " + productType);
+    }
+}
+
+AccountDetailConvertor
+
+This class converts raw data from RadarAccountDetailList into AccountDetail objects.
+
+public List<AccountDetail> convertToAccountDetailList(RadarAccountDetailList radarAccountDetails) {
+    List<AccountDetail> result = FastList.newList();
+    for (RadarAccountDetail radarAccountDetail : radarAccountDetails) {
+        result.add(convertToAccountDetail(radarAccountDetail));
+    }
+    return result;
+}
+
+7. Summary
+
+The API fetches permitted accounts based on broker ID and product type.
+
+It validates inputs before querying the database.
+
+The data retrieval is done through RadarAccountsPerBrokerDAO.
+
+Caching is utilized to improve performance.
+
+The response is returned in JSON format, with proper error handling.
