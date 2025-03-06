@@ -1,0 +1,22 @@
+The code provides a REST API to fetch broker details. It consists of:
+
+REST API Endpoint (BrokerServiceEntryPoint):
+
+Defines a GET /brokers/all API.
+Calls brokerServiceDelegate.getBrokerDetails() to fetch broker details.
+Returns a 200 OK response if data is found, otherwise a 404 Not Found.
+Handles exceptions and returns a 500 Internal Server Error if any issue occurs.
+Data Retrieval Logic (RadarBrokerDetailDAO):
+
+Calls findAllBrokerDetails(), which fetches broker details from the data source.
+Retrieves broker details from RadarBrokerDetailFinder.findMany().
+Retrieves broker synonyms from RadarEmsBrokerSynonymFinder.findMany().
+Maps broker synonyms to brokers.
+Fetches legal entity details from emmaDaoFactory.getEmmaLegalEntityDAO().
+Constructs BrokerDetailsImpl objects with all gathered details.
+Where is the Cache Used?
+The cache is likely being used in:
+
+RadarBrokerDetailFinder.findMany() → This may be fetching broker details from cache instead of the database.
+RadarEmsBrokerSynonymFinder.findMany() → This may also be retrieving cached synonyms.
+emmaDaoFactory.getEmmaLegalEntityDAO().getLegalEntityDetail(...) → Might use cache for legal entity details.
