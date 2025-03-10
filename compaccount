@@ -1,0 +1,137 @@
+# API Documentation: /account Endpoint
+
+## Overview
+The `/account` endpoint retrieves Legal Entity Identifier (LEI) details from the EMMA system based on a provided `radarPortfolioId`. It uses caching, query optimization, and a layered architecture to enhance performance and reliability.
+
+## API Details
+### HTTP Method: GET
+### Path: `/account`
+
+### Description
+Fetches legal entity details associated with a given `radarPortfolioId`. The response is a list of `LegalEntityDetailsImpl` objects. If no data is found, it returns an appropriate error message.
+
+### Annotations
+- `@GET`: Defines an HTTP GET method.
+- `@Path("/account")`: Specifies the API path.
+- `@ApiOperation`: Provides API metadata, including description and response type.
+- `@Consumes(APPLICATION_JSON)`: Specifies JSON as the accepted input format.
+- `@Produces(APPLICATION_JSON)`: Specifies JSON as the output format.
+- `@ManagedAsync`: Enables asynchronous processing.
+
+## Request Parameters
+- `@QueryParam("radarPortfolioId") String radarPortfolioId`: The unique identifier of the portfolio.
+
+## Response Codes
+- **200 OK**: Returns a JSON list of `LegalEntityDetails`.
+- **400 Bad Request**: If `radarPortfolioId` is null or empty.
+- **404 Not Found**: If no legal entity data is found.
+- **500 Internal Server Error**: If an exception occurs.
+
+## Implementation
+### Controller: `AccountController`
+**Path:** `com.example.api.AccountController`
+
+```java
+@GET
+@Path("/account")
+@ApiOperation(
+    value = "Look-up the LEI details from EMMA for a specific single account",
+    notes = "Result is not paged",
+    response = LegalEntityDetailsImpl.class,
+    responseContainer = "List"
+)
+@Consumes(APPLICATION_JSON)
+@Produces(APPLICATION_JSON)
+@ManagedAsync
+public Response getLeiForSingleAccount(@QueryParam("radarPortfolioId") String radarPortfolioId) {
+    try {
+        if (radarPortfolioId == null || radarPortfolioId.isEmpty()) {
+            return Response.status(Status.BAD_REQUEST)
+                .entity("Portfolio ID value must be valid. Please check.")
+                .build();
+        }
+        
+        List<LegalEntityDetails> legalEntityDetails = brokerServiceDelegate.getLegalEntityForPortfolio(radarPortfolioId);
+        
+        if (legalEntityDetails != null) {
+            return Response.ok(legalEntityDetails).build();
+        } else {
+            return Response.status(Status.NOT_FOUND)
+                .entity("No Legal Entity data found")
+                .build();
+        }
+    } catch (Exception e) {
+        Logger.error(e.getMessage(), e);
+        return Response.status(Status.INTERNAL_SERVER_ERROR)
+            .entity(String.format(
+                "Error retrieving details for legal entity of Portfolio ID [%s]. Exception: [%s]",
+                radarPortfolioId, e.getMessage()
+            ))
+            .build();
+    }
+}
+```
+
+## Dependencies Used in `/account` API
+The API relies on the following dependencies:
+
+### **Core Frameworks & Libraries**
+- **Spring Framework** (`spring-context`, `spring-jdbc`, `spring-beans`) – Handles dependency injection and database interactions.
+- **Logging** (`slf4j-api`, `log4j-core`) – Provides structured logging.
+
+### **Database & ORM Dependencies**
+- **Mithra ORM** (`com.gs.mithra:mithra`, `mithra-itdsibcp`) – In-memory ORM for high-performance database interactions.
+- **JDBC Drivers** (`sybase:jconn2`, `com.sybase:idbox`) – Used for connecting to the Sybase database.
+
+### **API & Web Services**
+- **Jersey** (`jersey-container-grizzly2-http`, `jersey-media-json-jackson`) – Implements REST API.
+- **Swagger** (`swagger-jersey2-jaxrs`) – API documentation.
+
+### **Utility Libraries**
+- **Apache POI** (`poi`, `poi-ooxml`) – Handles Excel file processing.
+- **Commons Compress** (`commons-compress`) – Manages file compression.
+- **Jolt** (`com.gs.jolt:jolt`) – JSON transformation.
+
+### **Testing Dependencies**
+- **JUnit** (`junit`, `testng`, `hamcrest`) – Unit testing frameworks.
+- **Mockito** (`mockito-all`) – Mocking dependencies in tests.
+- **MeanBean** (`meanbean`) – Java Bean validation.
+
+### **Custom Internal Dependencies**
+- **Raven ORM Generator** (`com.gs.ti.aimm:raven`) – Generates ORM entity classes.
+- **GS Service Base** (`sb-model`, `soa-common-model`, `sb-core`) – Internal service framework.
+
+## **Database Interactions**
+### **Data Source:** EMMA System Database
+### **Table Accessed:** `LegalEntityDetails`
+### **Query Execution:**
+- Queries are executed in `EmmaLegalEntityDAO.fetchFromDatabase()`.
+- Uses Mithra ORM to optimize database calls.
+- Caching is implemented via `QueryCache` to reduce database hits.
+
+## **Flow Diagram**
+```mermaid
+graph TD;
+    A[Client Request] -->|GET /account?radarPortfolioId| B[API Controller];
+    B -->|Validate Request| C[BrokerServiceDelegate];
+    C -->|Check Cache| D{Data Found in Cache?};
+    D -->|Yes| E[Return Cached Data];
+    D -->|No| F[EmmaLegalEntityDAO Fetches Data];
+    F --> G[Query EMMA Database];
+    G -->|Data Found?| H{Yes or No};
+    H -->|Yes| I[Return Data & Cache it];
+    H -->|No| J[Return Error Message];
+    
+    E --> K[Send Response];
+    I --> K[Send Response];
+    J --> K[Send Response];
+```
+
+## **Conclusion**
+This documentation now includes:
+1. **Detailed dependency analysis** with their purpose in `/account` API.
+2. **Database interactions and ORM usage details.**
+3. **Flow diagram** for easier understanding.
+
+Let me know if you need any more refinements! 🚀
+
