@@ -1,0 +1,21 @@
+@startuml
+top to bottom direction
+start
+:Client sends GET request to /account?radarPortfolioId;
+:API Controller validates request;
+:Service Layer processes request;
+:Check if data is in cache;
+if (Data Found in Cache?) then (Yes)
+    :Return Cached Data;
+else (No)
+    :Fetch from Database;
+    :Execute Query;
+    if (Data Found?) then (Yes)
+        :Return Data and Cache it;
+    else (No)
+        :Return Error Message;
+    endif
+endif
+:Send Response;
+stop
+@enduml
