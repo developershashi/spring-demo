@@ -1,0 +1,23 @@
+@startuml
+actor Client
+participant "API Controller" as API
+participant "Service Layer" as Service
+participant "Cache" as Cache
+participant "Data Access Layer" as DAO
+participant "Database" as DB
+
+Client -> API: GET /account?radarPortfolioId=12345
+API -> Service: Validate & Process Request
+Service -> Cache: Check if data exists
+alt Data Found in Cache
+    Cache -> Service: Return Cached Data
+else Data Not Found
+    Service -> DAO: Fetch from Database
+    DAO -> DB: Execute Query
+    DB -> DAO: Return Data
+    DAO -> Service: Return Data
+    Service -> Cache: Store Data in Cache
+end
+Service -> API: Return Data
+API -> Client: Respond with Legal Entity Details
+@enduml
