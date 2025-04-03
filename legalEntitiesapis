@@ -1,0 +1,160 @@
+@RestController
+@RequestMapping("/legal-entities")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Legal Entities API", description = "API to fetch EMMA Legal Entity details")
+public class LegalEntitiesResource {
+
+    private final BrokerServiceDelegate brokerServiceDelegate;
+
+    @Autowired
+    public LegalEntitiesResource(BrokerServiceDelegate brokerServiceDelegate) {
+        this.brokerServiceDelegate = brokerServiceDelegate;
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllLegalEntityDetails() {
+        try {
+            List<LegalEntityDetails> legalEntityDetails = brokerServiceDelegate.getLegalEntityDetails();
+            if (legalEntityDetails != null && !legalEntityDetails.isEmpty()) {
+                return ResponseEntity.ok(legalEntityDetails);
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No Legal Entity data found");
+            }
+        } catch (Exception e) {
+            log.error("Error fetching legal entity details: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving legal entities");
+        }
+    }
+}
+2️⃣ BrokerServiceDelegate.java (Service Layer)
+java
+Copy
+Edit
+@Service
+public class BrokerServiceDelegate {
+
+    private final EmmaLegalEntityDetailRepository legalEntityRepository;
+    private final EmmaMifidFirmRepository mifidFirmRepository;
+
+    @Autowired
+    public BrokerServiceDelegate(EmmaLegalEntityDetailRepository legalEntityRepository, 
+                                 EmmaMifidFirmRepository mifidFirmRepository) {
+        this.legalEntityRepository = legalEntityRepository;
+        this.mifidFirmRepository = mifidFirmRepository;
+    }
+
+    public List<LegalEntityDetails> getLegalEntityDetails() {
+        List<EmmaLegalEntityDetail> legalEntities = legalEntityRepository.findAll();
+        if (legalEntities.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Extract unique Emma IDs
+        Set<Integer> emmaIdSet = legalEntities.stream()
+                .map(EmmaLegalEntityDetail::getEmmaId)
+                .collect(Collectors.toSet());
+
+        // Fetch associated Mifid firms
+        List<EmmaMifidFirm> mifidFirms = mifidFirmRepository.findByEmmaIdIn(emmaIdSet);
+
+        // Convert to response DTO
+        return LegalEntityDetailConverter.convertToLegalEntityDetailList(legalEntities, mifidFirms, -1);
+    }
+}
+3️⃣ EmmaLegalEntityDetailRepository.java (JPA Repository)
+java
+Copy
+Edit
+@Repository
+public interface EmmaLegalEntityDetailRepository extends JpaRepository<EmmaLegalEntityDetail, Integer> {
+
+    @Query("SELECT e FROM EmmaLegalEntityDetail e")
+    List<EmmaLegalEntityDetail> findAll();
+}
+4️⃣ EmmaMifidFirmRepository.java (JPA Repository)
+java
+Copy
+Edit
+@Repository
+public interface EmmaMifidFirmRepository extends JpaRepository<EmmaMifidFirm, Integer> {
+
+    @Query("SELECT m FROM EmmaMifidFirm m WHERE m.emmaId IN :emmaIds")
+    List<EmmaMifidFirm> findByEmmaIdIn(@Param("emmaIds") Set<Integer> emmaIds);
+}
+5️⃣ LegalEntityDetailConverter.java (DTO Conversion)
+java
+Copy
+Edit
+public class LegalEntityDetailConverter {
+
+    public static List<LegalEntityDetails> convertToLegalEntityDetailList(List<EmmaLegalEntityDetail> legalEntities,
+                                                                          List<EmmaMifidFirm> mifidFirms,
+                                                                          int defaultValue) {
+        Map<Integer, EmmaMifidFirm> mifidFirmMap = mifidFirms.stream()
+                .collect(Collectors.toMap(EmmaMifidFirm::getEmmaId, firm -> firm));
+
+        return legalEntities.stream()
+                .map(entity -> new LegalEntityDetails(entity, mifidFirmMap.get(entity.getEmmaId()), defaultValue))
+                .collect(Collectors.toList());
+    }
+}
+6️⃣ Entity Classes
+EmmaLegalEntityDetail.java
+java
+Copy
+Edit
+@Entity
+@Table(name = "emma_legal_entity_detail")
+public class EmmaLegalEntityDetail {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "emma_id", nullable = false)
+    private Integer emmaId;
+
+    @Column(name = "name")
+    private String name;
+
+    // Getters and Setters
+}
+EmmaMifidFirm.java
+java
+Copy
+Edit
+@Entity
+@Table(name = "emma_mifid_firm")
+public class EmmaMifidFirm {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "emma_id", nullable = false)
+    private Integer emmaId;
+
+    @Column(name = "firm_name")
+    private String firmName;
+
+    // Getters and Setters
+}
+LegalEntityDetails.java (DTO)
+java
+Copy
+Edit
+public class LegalEntityDetails {
+
+    private Integer emmaId;
+    private String name;
+    private String mifidFirmName;
+
+    public LegalEntityDetails(EmmaLegalEntityDetail entity, EmmaMifidFirm mifidFirm, int defaultValue) {
+        this.emmaId = entity.getEmmaId();
+        this.name = entity.getName();
+        this.mifidFirmName = (mifidFirm != null) ? mifidFirm.getFirmName() : "Unknown";
+    }
+
+    // Getters and Setters
+}
