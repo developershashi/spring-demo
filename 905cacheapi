@@ -1,0 +1,193 @@
+Radar SQL Views, DAO Classes, API Endpoints, and Cache Management - Complete Documentation
+1. SQL Views (Database: Radar, unless mentioned otherwise)
+1.1. RadarBrokerDetailsView
+•	Query:
+SELECT
+    brokerId = b.broker_id,
+    brokerName = b.broker_name,
+    brokerCode = b.broker_code,
+    deskId = d.desk_id,
+    isApproved = b.is_approved
+FROM
+    brokers b
+JOIN
+    desks d ON b.desk_id = d.desk_id
+WHERE
+    b.is_active = 1;
+•	Fields:
+o	brokerId (Integer)
+o	brokerName (String)
+o	brokerCode (String)
+o	deskId (Integer)
+o	isApproved (Boolean)
+•	Tables: brokers, desks
+•	Cache: Preloaded during application startup
+1.2. RadarBrokerUmrReadyView
+•	Query:
+SELECT
+    brokerId = b.broker_id,
+    umrReadyFlag = b.umr_ready_flag
+FROM
+    brokers b
+WHERE
+    b.is_active = 1;
+•	Fields:
+o	brokerId (Integer)
+o	umrReadyFlag (Boolean)
+•	Tables: brokers
+•	Cache: Updated when broker UMR readiness changes
+1.3. RadarClearingMerchantView
+•	Query:
+SELECT
+    merchantId = m.merchant_id,
+    merchantName = m.merchant_name,
+    clearingType = m.clearing_type
+FROM
+    clearing_merchants m
+WHERE
+    m.is_active = 1;
+•	Fields:
+o	merchantId (Integer)
+o	merchantName (String)
+o	clearingType (String)
+•	Tables: clearing_merchants
+•	Cache: Preloaded during application startup
+1.4. RadarRelatedBrokerlineView
+•	Query:
+SELECT
+    relatedEntityId = r.related_entity_id,
+    brokerId = r.broker_id,
+    brokerCode = b.broker_code,
+    agreementType = r.agreement_type,
+    productType = r.product_type
+FROM
+    related_brokerlines r
+JOIN
+    brokers b ON r.broker_id = b.broker_id
+WHERE
+    r.is_active = 1;
+•	Fields:
+o	relatedEntityId (Integer)
+o	brokerId (Integer)
+o	brokerCode (String)
+o	agreementType (String)
+o	productType (String)
+•	Tables: related_brokerlines, brokers
+•	Cache: Updated when related brokerlines change
+1.5. RadarBrokerPerDeskView
+•	Query:
+SELECT
+    deskId = d.desk_id,
+    brokerId = b.broker_id,
+    brokerCode = b.broker_code
+FROM
+    desks d
+JOIN
+    brokers b ON d.desk_id = b.desk_id
+WHERE
+    b.is_active = 1;
+•	Fields:
+o	deskId (Integer)
+o	brokerId (Integer)
+o	brokerCode (String)
+•	Tables: desks, brokers
+•	Cache: Preloaded during application startup
+1.6. RadarDeskToDeskGroupView (Database: cdb)
+•	Query (Simplified):
+SELECT
+    radarEntityId = e.entity_id,
+    radarDeskName = e.e_full_nm,
+    radarDeskShortName = e.e_short_nm,
+    deskGroupName = CASE
+        WHEN (e.e_full_nm LIKE 'Money Market%') THEN 'MM'
+        WHEN (e.e_full_nm = 'London FX') THEN 'FX'
+        WHEN (e.e_full_nm LIKE 'Aurora%') THEN 'aurora'
+        ELSE ef1.flag_value
+    END
+FROM
+    cdb.entity_role er
+JOIN cdb.entity e ON er.entity_id = e.entity_id
+LEFT JOIN cdb.entity_flag ef1 ON ef1.id = e.entity_id
+WHERE
+    er.entity_role_status_cd = 'active'
+    AND er.entity_role_tp_cd = 'desk'
+    AND ISNULL(er.is_valid, 'Y') = 'Y';
+•	Fields:
+o	radarEntityId (Integer)
+o	radarDeskName (String)
+o	radarDeskShortName (String)
+o	deskGroupName (String)
+•	Tables: cdb.entity_role, cdb.entity, cdb.entity_flag, cdb.std_cd_set
+•	Cache: Preloaded during application startup
+________________________________________
+2. DAO Classes and Methods
+2.1. RadarDao
+•	Methods:
+o	clearCache()
+o	removeUnapprovedBrokers()
+o	createBrokerLineOperation()
+o	isCreditValidBroker()
+o	isUmrReady()
+o	portfolioAndBrokerHaveSameDesk()
+o	brokerAttributesCollector()
+2.2. RadarClearingMerchantDAO
+•	Methods:
+o	findClearingMerchantById()
+o	getClearingMerchantDetails()
+2.3. RadarInternalBrokerDAO
+•	Methods:
+o	findInternalBrokerById()
+o	getInternalBrokerDetails()
+2.4. GenericDAOFactory
+•	Methods:
+o	clearGuidelinesCache()
+o	getDAO()
+o	loadGuidelinesCache()
+o	reloadGuidelinesCache()
+o	viewCacheStatsSummary()
+________________________________________
+3. Finders
+•	RadarBrokerFinder
+o	RadarBrokerDetailFinder
+o	RadarBrokerUmrReadyFinder
+o	RadarClearingMerchantFinder
+o	RadarRelatedBrokerFinder
+o	RadarBrokerPerDeskFinder
+o	RadarDeskToDeskGroupFinder
+________________________________________
+4. Cache APIs in CacheResource
+4.1. API Endpoints
+API Path	HTTP Method	Description
+/cache/clear	POST	Clears all caches
+/cache/clear/guidelines	POST	Clears the guidelines cache
+/cache/clear/radar	POST	Clears the RADAR cache
+/cache/stats	GET	Retrieves cache statistics
+4.2. Methods in CacheResource
+•	clearCache() – Invokes BrokerServiceDelegate.clearGuidelinesCache() and clearRadarCache()
+•	clearGuidelinesCache()
+•	clearRadarCache()
+•	viewCacheStats()
+4.3. Dependencies
+•	BrokerServiceDelegate
+o	clearGuidelinesCache() → Delegates to GenericDAOFactory.clearGuidelinesCache()
+o	clearRadarCache() → Delegates to RadarDao.clearCache()
+o	viewCacheStats() → Uses GenericDAOFactory.viewCacheStatsSummary()
+________________________________________
+5. API-Level Dependencies
+API Layer → Service Layer
+•	CacheResource
+o	Depends on BrokerServiceDelegate
+	Which internally calls GenericDAOFactory and RadarDao
+DAO Layer
+•	RadarDao accesses SQL views like:
+o	RadarBrokerDetailsView
+o	RadarBrokerUmrReadyView
+o	RadarRelatedBrokerlineView
+o	RadarBrokerPerDeskView
+o	RadarClearingMerchantView
+o	RadarDeskToDeskGroupView
+•	GenericDAOFactory manages guidelines-related DAOs and cache
+________________________________________
+This document comprehensively lists and maps SQL Views, their fields and queries, DAO classes with method breakdowns, cache APIs with endpoint logic, and the full dependency chain from API to database layer.
+Let me know if you want diagrams or UML representations of the dependencies.
+
