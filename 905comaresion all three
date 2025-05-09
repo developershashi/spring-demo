@@ -1,0 +1,39 @@
+Based on your request and the detailed input provided, I’ve consolidated and updated the comparison table to include the /cache microservice information along with the /lei and /mandates APIs. The updated table reflects:
+•	Class and DAO dependencies
+•	SQL views and their sources
+•	Caching strategies (when it's loaded, updated, used)
+•	Service interactions and cache operations
+Here is the enhanced table:
+________________________________________
+🔍 Unified Feature Comparison – /lei, /mandates, and /cache Microservices
+Feature	Legal Entity APIs (/lei)	Mandate Restrictions Service (/mandates)	Cache Service (/cache)
+Primary Class	LegalEntitiesResource	MandatesResource	CacheResource
+Core Delegate	BrokerServiceDelegate	BrokerServiceDelegate	BrokerServiceDelegate
+Key DAO(s)	EmmaLegalEntityDao	EmmaVolckerDAO	RadarDao, GenericDAOFactory
+Finders Used	EmmaLegalEntityDetailFinder, RadarBrokerDetailFinder, EmmaMifidFirmFinder	EmmaVolckerRuleFinder, RadarAccountFinder	RadarBrokerDetailFinder, RadarBrokerUmrReadyFinder, RadarClearingMerchantFinder, etc.
+Database Views	EmmaLegalEntitiesView, RadarBrokerDetailsView, EmmaMifidFirmView	EmmaVolckerRuleView, RadarAccountsView, RadarAccountDetailsView	RadarBrokerDetailsView, RadarBrokerUmrReadyView, RadarClearingMerchantView, etc.
+Main Use Cases	Fetch legal entities, lookups by LEI/EMMA ID, portfolio/account queries	Determine Volcker 23A mandate scope and retrieve all mandates	Manage cache for RADAR/guidelines; view/clear/reload caches
+Input Type	Mostly query params (GET)	JSON body (POST), query params (GET)	Path-based commands (POST/GET), no body except for clear-cache confirmations
+Output	Legal entity details (EMMA ID, legalEntityId, country, etc.)	Mandate info with Volcker compliance, EMMA details	Success messages, cache stats
+Caching Strategy	Preloaded on startup, updated via broker/desk changes	Some mandate-related info is cached on rule evaluation	RADAR cache preloaded at startup, some updated on entity changes; manual API-based clear/load support
+Cache Load Triggers	App startup for broker data (via RadarDao)	Volcker rules cache on startup or update (handled in DAO/finder layer)	App startup (RadarDao.clearCache()); manual via /cache/clear, /cache/reload
+Cache Update Triggers	When broker or desk information changes (indirect through UMR flags, desk groups)	When new mandates are added or mandate data changes	Explicit POST call (/cache/clear, /cache/clear/radar, /cache/clear/guidelines)
+Cache Access Points	Delegated from service layer; DAO interacts with views backed by cache	Cached mandate details accessed through DAO	Cache API endpoints /cache/stats, /cache/clear, /cache/clear/guidelines, /cache/clear/radar
+API Endpoints	/lei/defaults, /lei/emmaLookup, /lei/all, /lei/account, /lei/fix	/mandates/scope, /mandates/all, /mandates/restrictions	/cache/clear, /cache/clear/radar, /cache/clear/guidelines, /cache/stats
+Relevant Tables	emma_legal_entities, emma_mifid_firm, brokers, desks	volcker_rules, emma_mandates, radar_accounts, radar_account_details	brokers, desks, clearing_merchants, related_brokerlines, cdb.entity, cdb.entity_role, entity_flag
+Cache Related APIs	N/A (but indirectly affected via RADAR cache)	N/A	Yes, via /cache endpoints
+Cache Maintenance	Passive (depends on updates in RadarBroker details and UMR flags)	Passive (rule updates trigger refresh internally)	Active (admin or service explicitly calls cache clear/load endpoints)
+Operations Cached	Broker approval status, UMR readiness, desk info, EMMA lookups	Volcker compliance checks, EMMA-related mandates	Broker details, clearing merchant info, related brokers, desk groups
+Loaded On Startup	Yes (through Radar views)	Partially (DAO layer pre-fetches for Volcker context)	Yes – RadarDao.clearCache() and DAO calls populate it at startup
+________________________________________
+🧠 Summary of Cache Mechanism from Radar DAO Layer
+View	Tables Used	Cache Type	When Loaded	When Updated	Accessed By
+RadarBrokerDetailsView	brokers, desks	Preloaded	App startup	On broker/desk change	RadarBrokerDetailFinder
+RadarBrokerUmrReadyView	brokers	Dynamic	App startup	On UMR readiness change	RadarBrokerUmrReadyFinder
+RadarClearingMerchantView	clearing_merchants	Preloaded	App startup	Manual refresh or admin change	RadarClearingMerchantFinder
+RadarRelatedBrokerlineView	related_brokerlines, brokers	Dynamic	First access or updated	On related brokerline change	RadarRelatedBrokerFinder
+RadarBrokerPerDeskView	brokers, desks	Preloaded	App startup	On desk/broker change	RadarBrokerPerDeskFinder
+RadarDeskToDeskGroupView	cdb.entity, entity_role, entity_flag	Preloaded	App startup	Manual/DAO refresh	RadarDeskToDeskGroupFinder
+________________________________________
+Would you like a visual diagram showing the interaction between services, caches, DAO layers, and views?
+
