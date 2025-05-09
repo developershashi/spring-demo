@@ -1,0 +1,35 @@
+
+Unified Feature Comparison – /lei, /mandates, and /cache Microservices
+| Feature                  | `/lei` – Legal Entity APIs                                                             | `/mandates` – Mandate Restrictions Service         | `/cache` – Cache Microservice                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Primary Class**        | `LegalEntitiesResource`                                                                | `MandatesResource`                                 | `CacheResource`                                                                                             |
+| **Core Delegate**        | `BrokerServiceDelegate`                                                                | `BrokerServiceDelegate`                            | `BrokerServiceDelegate`                                                                                     |
+| **Key DAO**              | `EmmaLegalEntityDao`                                                                   | `EmmaVolckerDAO`                                   | `RadarDao`, `GenericDAOFactory`                                                                             |
+| **Finders Used**         | `EmmaLegalEntityDetailFinder`, `RadarBrokerDetailFinder`, etc.                         | `EmmaVolckerRuleFinder`, `RadarAccountFinder`      | `RadarBrokerDetailFinder`, `RadarDeskToDeskGroupFinder`, etc.                                               |
+| **Database Views**       | `EmmaLegalEntitiesView`, `RadarBrokerDetailsView`, etc.                                | `EmmaVolckerRuleView`, `RadarAccountsView`         | `RadarBrokerDetailsView`, `RadarDeskToDeskGroupView`, etc.                                                  |
+| **Main Use Cases**       | Fetch legal entities, LEI lookups, account queries                                     | Retrieve mandates and check Volcker scope          | Manage and clear in-memory application-level caches                                                         |
+| **Input Type**           | Mostly `GET` query parameters                                                          | `POST` (JSON body), `GET` query parameters         | `GET` query parameters, `POST` for clear ops                                                                |
+| **Output**               | Legal entity details (ID, country, etc.)                                               | Volcker mandate info with EMMA details             | Cache status, stats (hit/miss), and success message                                                         |
+| **Cache Operations**     | Not applicable                                                                         | Not applicable                                     | `clearCache()`, `clearGuidelinesCache()`, `viewCacheStats()`                                                |
+| **Cache Triggers**       | NA                                                                                     | NA                                                 | Preloaded on startup; selectively updated on data changes; manual clear supported                           |
+| **Views to Tables Map**  | `EmmaLegalEntitiesView` → `emma_legal_entities`<br>`EmmaMifidFirmView` → `mifid_firms` | `EmmaVolckerRuleView` → `emma_volcker_rules`, etc. | `RadarBrokerDetailsView` → `brokers`<br>`RadarDeskToDeskGroupView` → `cdb.entity`, etc.                     |
+| **Cache Initialization** | NA                                                                                     | NA                                                 | Happens at startup; uses `RadarDao`, `GenericDAOFactory`                                                    |
+| **APIs Calling Cache**   | NA                                                                                     | NA                                                 | `/cache/clear`, `/cache/clear/radar`, `/cache/stats`                                                        |
+| **DAO Classes and Ops**  | `EmmaLegalEntityDao`: `getLegalEntitiesOperation()`                                    | `EmmaVolckerDAO`: mandate-specific methods         | `RadarDao`: `clearCache()`, `createBrokerLineOperation()`<br>`GenericDAOFactory`: `viewCacheStatsSummary()` |
+| **Finder Layer**         | `EmmaLegalEntityDetailFinder`, `RadarBrokerDetailFinder`                               | `EmmaVolckerRuleFinder`                            | `RadarDeskToDeskGroupFinder`, etc. – used for in-memory lookups                                             |
+
+
+
+ Summary of Cache Mechanism from Radar DAO Layer
+
+
+| Aspect                        | Details                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Key DAO Classes**           | `RadarDao`, `GenericDAOFactory`                                                                                     |
+| **Main Responsibilities**     | Load in-memory cache from views/tables, provide optimized read access for microservices                             |
+| **Cache Initialization**      | Automatically loads on application startup using DAO’s `load*` methods                                              |
+| **Cache Invalidation**        | Explicit APIs (`/cache/clear`, `/cache/clear/radar`) call DAO methods like `clearCache()`, `clearGuidelinesCache()` |
+| **Views Preloaded**           | `RadarBrokerDetailsView`, `RadarBrokerUmrReadyView`, `RadarClearingMerchantView`, `RadarDeskToDeskGroupView`, etc.  |
+| **Views Updated Dynamically** | Some views like `RadarRelatedBrokerlineView` are updated during runtime based on upstream data changes              |
+| **Cache Usage**               | Finder classes use the loaded in-memory data to join and serve complex nested data without repeated DB hits         |
+| **Statistical View**          | `viewCacheStats()` exposes metrics like hit/miss, load time, and memory stats through API response                  |
