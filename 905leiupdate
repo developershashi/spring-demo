@@ -1,0 +1,145 @@
+Legal Entity APIs - Detailed Overview
+________________________________________
+1. Overview
+The /lei/ APIs in the LegalEntitiesResource class provide functionality to fetch, filter, and process legal entity details. These APIs rely on the BrokerServiceDelegate class, which internally calls EmmaLegalEntityDao and other related classes for business logic and database interactions.
+This document outlines:
+•	API endpoints
+•	Class dependencies and external libraries
+•	Database tables, views, and queries
+•	Parameters
+•	API-wise detailed analysis
+•	POJO classes involved
+________________________________________
+2. API Endpoints
+API Path	HTTP Method	Description
+/lei/defaults	GET	Fetches legal entities based on broker details, product type, and other parameters
+/lei/emmaLookup	GET	Looks up legal entity details from EMMA using an LEI string or EMMA ID
+/lei/all	GET	Lists all EMMA legal entity details
+/lei/account	GET	Fetches legal entity details for a specific account
+/lei/fix	GET	Fetches EMMA legal entity details for a specific LEI from a FIX message
+________________________________________
+3. Dependencies
+3.1 Core Classes and Methods
+•	BrokerServiceDelegate: Handles business logic and database interactions.
+o	getLegalEntities(String radarBrokerShortCode, String productType, Integer idmEmmalD, Integer petEmmalD, String tradedCurrency)
+o	getLegalEntityDetail(String emmaFieldName, String emmaFieldValue, String countryCode)
+o	getLegalEntityDetails()
+o	getLegalEntityForPortfolio(String radarPortfoliold)
+o	getLegalEntityForElectronicFlow(String legalEntityId, Integer radarBrokerId, String radarBrokerCode, String productType, Integer petEmmalD, String tradedCurrency)
+•	EmmaLegalEntityDao: Provides DAO layer functionality.
+o	getLegalEntitiesOperation(String radarBrokerShortCode, String productType, Integer idmEmmalD, Integer petEmmalD, String tradedCurrency)
+3.2 Finder Classes
+•	EmmaLegalEntityDetailFinder: Queries EmmaLegalEntitiesView
+•	RadarBrokerDetailFinder: Queries RadarBrokerDetailsView
+•	EmmaMifidFirmFinder: Queries EmmaMifidFirmView
+3.3 External Libraries
+•	Jersey: For REST API implementation
+•	SLF4J: Logging
+•	Swagger: API documentation
+________________________________________
+4. Database Details
+4.1 Tables & Views
+a. EmmaLegalEntitiesView
+•	Fields:
+o	emmald (Integer): EMMA ID
+o	legalEntityId (String): Legal entity ID
+o	emmaCountry (String)
+o	defaultEmmalD (Integer)
+o	productType (String)
+o	tradedCurrency (String)
+•	Datasource: EmmaDatasource
+•	Database: cdb
+•	Query:
+SELECT emmald, legalEntityId, emmaCountry, defaultEmmalD, productType, tradedCurrency
+FROM EmmaLegalEntitiesView
+WHERE radarBrokerShortCode = :radarBrokerShortCode
+  AND productType = :productType
+  AND tradedCurrency = :tradedCurrency;
+b. RadarBrokerDetailsView
+•	Fields:
+o	radarBrokerId (Integer)
+o	radarBrokerCode (String)
+•	Datasource: EmmaDatasource
+•	Database: cdb
+•	Query:
+SELECT radarBrokerId, radarBrokerCode
+FROM RadarBrokerDetailsView;
+c. EmmaMifidFirmView
+•	Fields:
+o	emmald (Integer)
+o	isMifidFirm (Boolean)
+•	Query:
+SELECT emmald, isMifidFirm
+FROM EmmaMifidFirmView
+WHERE legalEntityId = :legalEntityId;
+________________________________________
+5. API Analysis
+5.1 /lei/defaults
+•	Description: Fetches legal entities based on broker details, product type, and other parameters.
+•	Dependencies:
+o	BrokerServiceDelegate.getLegalEntities
+o	EmmaLegalEntityDao.getLegalEntitiesOperation
+o	EmmaLegalEntityDetailFinder
+•	Parameters:
+o	radarBrokerShortCode (String, required)
+o	productType (String, default: "ALL")
+o	idmEmmalD (Integer, default: -1)
+o	petEmmalD (Integer, default: -1)
+o	tradedCurrency (String, default: "ALL")
+5.2 /lei/emmaLookup
+•	Description: Looks up legal entity details from EMMA using an LEI string or EMMA ID.
+•	Dependencies:
+o	BrokerServiceDelegate.getLegalEntityDetail
+o	EmmaLegalEntityDetailFinder
+•	Parameters:
+o	emmaFieldName (String, required)
+o	emmaFieldValue (String, required)
+o	countryCode (String, default: "ALL")
+•	Query:
+SELECT emmald, legalEntityId, emmaCountry
+FROM EmmaLegalEntitiesView
+WHERE :emmaFieldName = :emmaFieldValue
+  AND emmaCountry = :countryCode;
+5.3 /lei/all
+•	Description: Lists all EMMA legal entity details.
+•	Dependencies:
+o	BrokerServiceDelegate.getLegalEntityForPortfolio
+o	RadarBrokerDetailFinder
+•	Parameters:
+o	radarPortfoliold (String, required)
+•	Query:
+SELECT radarBrokerId, radarBrokerCode
+FROM RadarBrokerDetailsView
+WHERE radarPortfoliold = :radarPortfoliold;
+5.4 /lei/fix
+•	Description: Fetches EMMA legal entity details for a specific LEI from a FIX message.
+•	Dependencies:
+o	BrokerServiceDelegate.getLegalEntityForElectronicFlow
+o	EmmaMifidFirmFinder
+•	Parameters:
+o	legalEntityId (String, required)
+o	radarBrokerId (Integer, optional)
+o	radarBrokerCode (String, optional)
+o	productType (String, default: "ALL")
+o	petEmmalD (Integer, default: -1)
+o	tradedCurrency (String, default: "ALL")
+________________________________________
+6. POJO Classes
+6.1 LegalEntityDetails
+•	Fields:
+o	emmald (Integer)
+o	legalEntityId (String)
+o	emmaCountry (String)
+o	defaultEmmalD (Integer)
+o	productType (String)
+o	tradedCurrency (String)
+________________________________________
+7. Summary
+API Path	Dependencies	Database Tables/Views
+/lei/defaults	BrokerServiceDelegate.getLegalEntities, EmmaLegalEntityDao.getLegalEntitiesOperation	EmmaLegalEntitiesView
+/lei/emmaLookup	BrokerServiceDelegate.getLegalEntityDetail, EmmaLegalEntityDetailFinder	EmmaLegalEntitiesView
+/lei/all	BrokerServiceDelegate.getLegalEntityForPortfolio, RadarBrokerDetailFinder	RadarBrokerDetailsView
+/lei/fix	BrokerServiceDelegate.getLegalEntityForElectronicFlow, EmmaMifidFirmFinder	EmmaMifidFirmView
+________________________________________
+This document represents a complete breakdown of the /lei/ APIs for ease of reference, implementation, and debugging.
+
