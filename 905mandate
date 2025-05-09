@@ -1,0 +1,143 @@
+Mandate Restrictions Service – Technical Documentation
+Overview
+The Mandate Restrictions Service provides a set of RESTful APIs to fetch and process mandate-related data, particularly focusing on mandates in scope for Volcker Rule (23A) compliance. The service is implemented in the MandatesResource class and utilizes the BrokerServiceDelegate for business logic and database access. It interacts with several database views, applies filtering and transformation logic, and returns structured, enriched data in the responses.
+________________________________________
+1. API Endpoints
+API Path	HTTP Method	Description
+/mandates/volcker	POST	Confirms which mandates (provided in request) are in scope for Volcker 23A.
+/mandates/volcker	GET	Retrieves all mandates that are in scope for Volcker 23A.
+/mandates/all	GET	Retrieves all mandate details along with EMMA information.
+________________________________________
+2. Dependencies
+Classes and Their Responsibilities
+•	BrokerServiceDelegate
+o	Handles core business logic and database operations for mandates.
+o	Key Methods:
+	getMandatesInScopeForVolcker(List<String> mandateCodes)
+	getAllMandates()
+•	EmmaVolckerDAO
+o	Data access object for mandates and EMMA compliance.
+o	Key Methods:
+	getInScopeForVolcker()
+	getInScopeForVolcker(List<String> mandateCodes)
+•	EmmaVolckerRuleFinder
+o	Queries the EmmaVolckerRuleView to retrieve EMMA-related mandate data.
+•	RadarAccountFinder
+o	Queries the RadarAccountsView and RadarAccountDetailsView to retrieve account and portfolio data.
+External Libraries
+•	Jersey – for building RESTful services.
+•	SLF4J – logging abstraction layer.
+•	Swagger – API documentation support.
+________________________________________
+3. Database Details
+Views and Their Schemas
+1. EmmaVolckerRuleView
+•	Fields:
+o	emmald (Integer): EMMA legal entity ID.
+o	partyFlag (String): Party type (e.g., "PTYB").
+o	legalName (String): Legal name.
+o	commonName (String): Common name.
+•	Query:
+sql
+CopyEdit
+SELECT emma_id, party_flag, legal_name, common_name
+FROM EmmaVolckerRuleView
+WHERE party_flag = 'PTYB';
+•	Database: cdb
+•	Datasource: EmmaVolckerDatasource
+________________________________________
+2. RadarAccountsView
+•	Fields:
+o	radarPortfoliold (Integer): Portfolio ID.
+o	mandateCode (String): Mandate code.
+o	emmald (Integer): Associated EMMA ID.
+•	Query:
+sql
+CopyEdit
+SELECT radarPortfoliold, mandateCode, emmald
+FROM RadarAccountsView
+WHERE mandateCode IN (:mandateCodes);
+•	Database: cdb
+•	Datasource: RadarDatasource
+________________________________________
+3. RadarAccountDetailsView
+•	Fields:
+o	port_id (Integer): Portfolio ID.
+o	port_syn (String): Portfolio synonym.
+o	e_full_nm (String): Full entity name.
+o	e_short_nm (String): Short entity name.
+o	base_ccy_cd3 (String): Base currency code.
+•	Query:
+sql
+CopyEdit
+SELECT port_id, port_syn, e_full_nm, e_short_nm, base_ccy_cd3
+FROM RadarAccountDetailsView;
+•	Database: cdb
+•	Datasource: RadarDatasource
+________________________________________
+4. API Analysis
+4.1 /mandates/volcker (POST)
+•	Description: Identifies mandates that are in-scope for Volcker 23A.
+•	Input:
+o	Request Body: MandateDTO object containing:
+	mandateCodes (List<String>): List of mandate codes to check.
+•	Business Logic:
+o	Calls BrokerServiceDelegate.getMandatesInScopeForVolcker(mandateCodes).
+o	Internally fetches data from EmmaVolckerRuleView and RadarAccountsView.
+•	Response:
+o	200 OK: Data found and returned.
+o	404 Not Found: No data matched.
+o	500 Internal Server Error: Processing error.
+________________________________________
+4.2 /mandates/volcker (GET)
+•	Description: Fetches all mandates that fall under Volcker 23A scope.
+•	Input: None
+•	Business Logic:
+o	Calls BrokerServiceDelegate.getMandatesInScopeForVolcker(Collections.emptyList()).
+o	Uses EmmaVolckerDAO.getInScopeForVolcker() to pull data.
+•	Response:
+o	200 OK: Data successfully retrieved.
+o	404 Not Found: No records found.
+o	500 Internal Server Error: Failure in processing.
+________________________________________
+4.3 /mandates/all (GET)
+•	Description: Retrieves full mandate details including EMMA metadata.
+•	Input: None
+•	Business Logic:
+o	Calls BrokerServiceDelegate.getAllMandates().
+o	Fetches data from RadarAccountDetailsView.
+•	Response:
+o	200 OK: Full mandate list returned.
+o	404 Not Found: No records present.
+o	500 Internal Server Error: Service-level failure.
+________________________________________
+5. POJO Classes
+5.1 Mandate
+•	Fields:
+o	mandateld (Integer)
+o	mandateCode (String)
+o	emmald (Integer)
+o	legalName (String)
+o	commonName (String)
+o	inScope (Boolean)
+________________________________________
+5.2 RadarAccount
+•	Fields:
+o	radarPortfoliold (Integer)
+o	mandateCode (String)
+o	emmald (Integer)
+________________________________________
+5.3 EmmaVolckerRule
+•	Fields:
+o	emmald (Integer)
+o	partyFlag (String)
+o	legalName (String)
+o	commonName (String)
+________________________________________
+6. Summary Table
+API Path	Dependencies	Database Views	POJOs
+/mandates/volcker (POST)	BrokerServiceDelegate.getMandatesInScopeForVolcker, EmmaVolckerDAO.getInScopeForVolcker(List)	EmmaVolckerRuleView, RadarAccountsView	Mandate, RadarAccount
+/mandates/volcker (GET)	BrokerServiceDelegate.getMandatesInScopeForVolcker, EmmaVolckerDAO.getInScopeForVolcker()	EmmaVolckerRuleView	Mandate
+/mandates/all (GET)	BrokerServiceDelegate.getAllMandates	RadarAccountDetailsView	RadarAccount
+________________________________________
+
