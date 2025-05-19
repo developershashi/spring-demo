@@ -1,0 +1,47 @@
+[EmmaLegalEntity]
+- emmaId (PK)
+- emmaLegalEntityName
+- legalEntityId
+- emmaParentId
+- emmaUltimateParentId
+- emmaCountry
+
+    ▲            ▲
+    │            │
+    │            │
+[EmmaMifidFirm]  │
+- emmaId (PK, FK)│
+- isMifidFirm    │
+                 │
+                 │
+          [RadarBrokerDetail]
+          - radarBrokerId (PK)
+          - radarBrokerLongName
+          - radarBrokerShortName
+          - isCrossBroker
+          - isCreditValid
+          - isInternalBroker
+          - emmaId (FK)
+          - emmaParentId
+          - emmaUltimateParentId
+          - emmaUltimateParentName
+          - emmaCountry
+          - counterPartyType
+
+                ▲
+                │
+          [RadarBrokerUmrReady]
+          - brokerId (PK, FK?)
+          - documentCode (PK)
+          - documentType
+          - umrReadyFlag
+
+                ▲
+                │
+             [Account]
+             - pmdbAcctRefI (PK)
+             - radarPortfolioId (PK)
+             - deskEntityId (PK, FK to RadarBrokerDetail)
+             - deskShortName
+             - deskLongName
+             - investoneNumber
