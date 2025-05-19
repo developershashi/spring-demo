@@ -1,0 +1,103 @@
+**Structured Representation of Tables and Views with Logical Data Model Proposals**
+
+---
+
+### **1. Tables and Views Overview**
+
+| Name                             | Type  | Database      | Size       | Rows      | Columns | Notes                               |
+| -------------------------------- | ----- | ------------- | ---------- | --------- | ------- | ----------------------------------- |
+| EmmaMifidFirm                    | View  | brokerservice | 48 KB      | 2,320     | 2       | MIFID compliance reference          |
+| EmmaLegalEntitiesView            | View  | brokerservice | 2 KB       | 10        | 1       | Maps legal entity names             |
+| EmmaLega EntityDefaults          | Table | brokerservice | 34 KB      | 135       | 11      | Entity default configuration        |
+| EmmaldTolsMifidFirm              | Table | brokerservice | 2 KB       | 0         | 2       | Placeholder or deprecated           |
+| StepAcctBkrPermOverride          | Table | brokerservice | 204 KB     | 1,232     | 12      | Broker account permission overrides |
+| RadarMsftaExemptAccountsOverride | Table | brokerservice | Not given  | Unknown   | Unknown | Details not specified               |
+| entity                           | Table | brokerservice | 161206 KB  | 2,628,000 | 6       | Core entity table                   |
+| entity\_syn                      | Table | cdb           | 17,518 KB  | 78,625    | 12      | Entity synonyms                     |
+| entity\_syn (duplicate info)     | Table | cdb           | 35,932 KB  | 157,486   | 42      | Possibly old or backup version      |
+| entity\_flag                     | Table | cdb           | 70,974 KB  | 585,141   | 8       | Entity feature flags                |
+| std\_cd\_set                     | Table | cdb hs        | 3,036 KB   | 10,804    | 13      | Standard codes                      |
+| port                             | Table | cdb           | 137,532 KB | 427,965   | 46      | Portfolio data                      |
+| port\_syn                        | Table | cdb           | 528,742 KB | 3,170,525 | 14      | Portfolio synonyms                  |
+
+---
+
+### **2. Logical Data Models (CDM Proposal)**
+
+#### **A. Legal Entity Reference Model**
+
+* **Table/View**: `EmmaLegalEntitiesView`, `entity`, `entity_syn`, `entity_flag`
+* **Logical Name**: `LegalEntityReference`
+* **Attributes**:
+
+  * `emmaId` → `entityId`
+  * `emmaLegalEntityName` → `legalName`
+  * `emmaParentId` → `parentEntityId`
+  * `emmaUltimateParentId` → `ultimateParentEntityId`
+  * `emmaCountry` → `businessCountryCode`
+
+#### **B. Broker Details Model**
+
+* **Table/View**: `RadarBrokerDetailsView`, `entity`, `entity_syn`, `std_cd_set`, `entity_flag`
+* **Logical Name**: `BrokerReference`
+* **Attributes**:
+
+  * `radarBrokerId` → `brokerId`
+  * `radarBrokerShortName` → `brokerShortName`
+  * `radarBrokerLongName` → `brokerFullName`
+  * `isInternalBroker` → Derived via standard code
+  * `isCreditValid` → Derived from flag
+  * `emmaId`, `emmaParentId`, `emmaUltimateParentId`, `emmaCountry`
+
+#### **C. UMR Ready Brokers Model**
+
+* **Table/View**: `RadarBrokerUmrReadyView`, `std_cd_set`, `entity_syn`, `entity`
+* **Logical Name**: `UmrReadyBroker`
+* **Attributes**:
+
+  * `brokerEntityId`
+  * `documentCode`
+  * `documentType`
+  * `umrReadyFlag`
+
+#### **D. Portfolio Reference Model**
+
+* **Table/View**: `port`, `port_syn`
+* **Logical Name**: `PortfolioReference`
+* **Attributes**:
+
+  * `portfolioId`
+  * `portfolioName`
+  * `portfolioSynonyms`
+  * `associatedEntityId`
+
+#### **E. Entity Configuration Model**
+
+* **Table/View**: `EmmaLega EntityDefaults`, `StepAcctBkrPermOverride`
+* **Logical Name**: `EntityConfiguration`
+* **Attributes**:
+
+  * Defaults such as `taxRegion`, `tradingPermissions`, etc.
+  * Overrides for broker accounts
+
+---
+
+### **3. Reference Data & Relationships**
+
+* **LegalEntityReference** ↔ **BrokerReference** via `emmaId`
+* **BrokerReference** ↔ **UmrReadyBroker** via `entity_id`
+* **BrokerReference** ↔ **PortfolioReference** via indirect entity ID joins
+* **BrokerReference** ↔ **EntityConfiguration** via broker ID
+
+---
+
+### **4. Summary & Recommendations**
+
+* Normalize naming conventions: `emmaId`, `entityId`, `brokerId`, etc.
+* Consolidate duplicates (`entity_syn`) and confirm preferred versions.
+* Use views such as `RadarBrokerDetailsView` and `EmmaLegalEntitiesView` as source-of-truth mappings.
+* Represent each model in a **Common Data Model (CDM)** approach to support services like broker lookups, entity hierarchies, and compliance (e.g., MIFID, UMR).
+
+---
+
+If needed, diagrams of these models with relationships (ERDs) can be shared next.
