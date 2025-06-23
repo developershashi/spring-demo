@@ -1,0 +1,203 @@
+public class LegalEntityDetails {
+    private int emmaId;
+    private String emmaLegalEntityName;
+    private String legalEntityId;
+    private int emmaParentId;
+    private int emmaUltimateParentId;
+    private String emmaCountry;
+    private boolean mifidFirm;
+
+    // Getters, Setters, Constructors (No-arg + All-arg)
+}
+
+step2 
+public class HollowProducerMain {
+
+    public static void main(String[] args) throws IOException {
+        HollowProducer producer = HollowProducer.withPublisher(
+                new HollowFilesystemPublisher(Paths.get("hollow-data/")))
+            .withAnnouncer(new HollowFilesystemAnnouncer(Paths.get("hollow-data/announcements")))
+            .build();
+
+        producer.runCycle(writeStateEngine -> {
+            HollowObjectMapper mapper = new HollowObjectMapper(writeStateEngine);
+
+            List<LegalEntityDetails> allDetails = loadFromDatabase(); // Replace this with DB/Mithra logic
+            for (LegalEntityDetails detail : allDetails) {
+                mapper.add(detail);
+            }
+        });
+
+        System.out.println("✅ Hollow snapshot created.");
+    }
+
+    private static List<LegalEntityDetails> loadFromDatabase() {
+        // For now: mock the result. Replace this with JDBC or Mithra logic
+        List<LegalEntityDetails> list = new ArrayList<>();
+        list.add(new LegalEntityDetails(1, "ABC Corp", "LEI001", 10, 100, "IN", true));
+        list.add(new LegalEntityDetails(2, "XYZ Inc", "LEI002", 11, 101, "US", false));
+        return list;
+    }
+}
+
+Step 3: Create the Hollow Consumer
+
+public class HollowConsumerService {
+
+    private static HollowConsumer consumer;
+
+    static {
+        consumer = HollowConsumer.withBlobRetriever(
+                new HollowFilesystemBlobRetriever(Paths.get("hollow-data/")))
+            .withAnnouncementWatcher(
+                new HollowFilesystemAnnouncementWatcher(Paths.get("hollow-data/announcements")))
+            .build();
+
+        consumer.triggerRefresh();
+    }
+
+    public List<LegalEntityDetails> search(String fieldName, String fieldValue, String countryCode) {
+        List<LegalEntityDetails> result = new ArrayList<>();
+        HollowPrimaryKeyIndex index = new HollowPrimaryKeyIndex(
+                consumer.getStateEngine(), "LegalEntityDetails", fieldName);
+
+        int ordinal = index.getMatchingOrdinal(fieldValue);
+        if (ordinal == -1) return result;
+
+        GenericHollowObject obj = new GenericHollowObject(consumer.getStateEngine(), "LegalEntityDetails", ordinal);
+
+        // Apply additional filters
+        if (countryCode.equals("ALL") || obj.getString("emmaCountry").equalsIgnoreCase(countryCode)) {
+            result.add(new LegalEntityDetails(
+                    obj.getInt("emmaId"),
+                    obj.getString("emmaLegalEntityName"),
+                    obj.getString("legalEntityId"),
+                    obj.getInt("emmaParentId"),
+                    obj.getInt("emmaUltimateParentId"),
+                    obj.getString("emmaCountry"),
+                    obj.getBoolean("mifidFirm")));
+        }
+
+        return result;
+    }
+}
+
+Step 4: Spring Boot API Layer
+
+@RestController
+@RequestMapping("/api/emmaLookup")
+public class LegalEntityController {
+
+    HollowConsumerService hollowService = new HollowConsumerService();
+
+    @GetMapping
+    public ResponseEntity<?> getEmmaFromLei(
+        @RequestParam String emmaFieldName,
+        @RequestParam String emmaFieldValue,
+        @RequestParam(defaultValue = "ALL") String countryCode) {
+
+        if (emmaFieldName.isEmpty() || emmaFieldValue.isEmpty()) {
+            return ResponseEntity.badRequest().body("Field name and value are required.");
+        }
+
+        List<LegalEntityDetails> data = hollowService.search(emmaFieldName, emmaFieldValue, countryCode);
+        if (data.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No data found.");
+        }
+
+        return ResponseEntity.ok(data);
+    }
+}
+
+Step 5: Add Dependencies (Gradle)
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'com.netflix.hollow:hollow:5.1.0'
+    implementation 'com.netflix.hollow:hollow-tools:5.1.0'
+}
+
+step 6 : curl
+curl "http://localhost:8080/api/emmaLookup?emmaFieldName=emmaId&emmaFieldValue=1&countryCode=ALL"
+
+
+
+
+ Create DAO to Load from View
+
+@Repository
+public class EmmaLegalEntityDAO {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<LegalEntityDetails> fetchAllLegalEntities() {
+        String sql = "SELECT emmaId, emmaLegalEntityName, legalEntityId, emmaParentId, emmaUltimateParentId, emmaCountry " +
+                     "FROM EmmaLegalEntitiesView";
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            LegalEntityDetails detail = new LegalEntityDetails();
+            detail.setEmmaId(rs.getInt("emmaId"));
+            detail.setEmmaLegalEntityName(rs.getString("emmaLegalEntityName"));
+            detail.setLegalEntityId(rs.getString("legalEntityId"));
+            detail.setEmmaParentId(rs.getInt("emmaParentId"));
+            detail.setEmmaUltimateParentId(rs.getInt("emmaUltimateParentId"));
+            detail.setEmmaCountry(rs.getString("emmaCountry"));
+            return detail;
+        });
+    }
+
+    public List<EmmaMifidFirm> fetchMifidFirms(Set<Integer> emmaIds) {
+        String inSql = String.join(",", Collections.nCopies(emmaIds.size(), "?"));
+
+        String sql = "SELECT emmaId, isMifidFirm FROM EmmaMifidFirmView WHERE emmaId IN (" + inSql + ")";
+
+        return jdbcTemplate.query(sql, emmaIds.toArray(), (rs, rowNum) -> {
+            EmmaMifidFirm firm = new EmmaMifidFirm();
+            firm.setEmmaId(rs.getInt("emmaId"));
+            firm.setMifidFirm(rs.getBoolean("isMifidFirm"));
+            return firm;
+        });
+    }
+}
+
+Load View Data → Create Hollow Snapshot
+@SpringBootApplication
+public class HollowProducerMain implements CommandLineRunner {
+
+    @Autowired
+    private EmmaLegalEntityDAO dao;
+
+    public static void main(String[] args) {
+        SpringApplication.run(HollowProducerMain.class, args);
+    }
+
+    @Override
+    public void run(String... args) {
+        HollowProducer producer = HollowProducer.withPublisher(
+                new HollowFilesystemPublisher(Paths.get("hollow-data/")))
+            .withAnnouncer(new HollowFilesystemAnnouncer(Paths.get("hollow-data/announcements")))
+            .build();
+
+        producer.runCycle(writeStateEngine -> {
+            HollowObjectMapper mapper = new HollowObjectMapper(writeStateEngine);
+
+            List<LegalEntityDetails> baseEntities = dao.fetchAllLegalEntities();
+            Set<Integer> emmaIds = baseEntities.stream()
+                                               .map(LegalEntityDetails::getEmmaId)
+                                               .collect(Collectors.toSet());
+
+            List<EmmaMifidFirm> mifidFirms = dao.fetchMifidFirms(emmaIds);
+            Map<Integer, Boolean> mifidMap = mifidFirms.stream()
+                    .collect(Collectors.toMap(EmmaMifidFirm::getEmmaId, EmmaMifidFirm::isMifidFirm));
+
+            for (LegalEntityDetails entity : baseEntities) {
+                entity.setMifidFirm(mifidMap.getOrDefault(entity.getEmmaId(), false));
+                mapper.add(entity);
+            }
+        });
+
+        System.out.println("✅ Hollow snapshot created from SQL View.");
+    }
+}
+
