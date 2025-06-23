@@ -1,0 +1,42 @@
+@Component
+public class LegalEntityApi {
+
+    private final HollowFilesystemConsumer consumer;
+
+    @Autowired
+    public LegalEntityApi(HollowFilesystemConsumer consumer) {
+        this.consumer = consumer;
+    }
+
+    public List<LegalEntityDetails> findByEmmaIdOrLei(String fieldName, String fieldValue, String countryCode) {
+        List<LegalEntityDetails> result = new ArrayList<>();
+
+        consumer.getApi().getAllLegalEntityDetails().stream()
+                .filter(e -> {
+                    boolean match = switch (fieldName.toUpperCase()) {
+                        case "EMMA_ID" -> String.valueOf(e.getEmmaId()).equals(fieldValue);
+                        case "LEI" -> fieldValue.equalsIgnoreCase(e.getLegalEntityId());
+                        default -> false;
+                    };
+                    return match && ("ALL".equalsIgnoreCase(countryCode) || countryCode.equalsIgnoreCase(e.getEmmaCountry()));
+                })
+                .forEach(e -> {
+                    // Enrich with Mifid info
+                    EmmaMifidFirm mifidFirm = consumer.getApi().getAllEmmaMifidFirm().stream()
+                            .filter(f -> f.getEmmaId() == e.getEmmaId())
+                            .findFirst()
+                            .orElse(null);
+
+                    LegalEntityDetails enriched = new LegalEntityDetails(
+                        e.getEmmaId(),
+                        e.getEmmaLegalEntityName(),
+                        e.getLegalEntityId(),
+                        e.getEmmaCountry(),
+                        mifidFirm != null && Boolean.TRUE.equals(mifidFirm.getMifidFirm())
+                    );
+                    result.add(enriched);
+                });
+
+        return result;
+    }
+}
