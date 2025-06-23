@@ -1,0 +1,39 @@
+import org.springframework.jdbc.core.RowMapper;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class EmmaLegalEntityDetailRowMapper implements RowMapper<EmmaLegalEntityDetail> {
+
+    @Override
+    public EmmaLegalEntityDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
+        EmmaLegalEntityDetail detail = new EmmaLegalEntityDetail();
+
+        detail.setEmmaId(rs.getInt("emmaId"));
+        detail.setEmmaLegalEntityName(rs.getString("emmaLegalEntityName"));
+        detail.setLegalEntityId(rs.getString("legalEntityId"));
+        detail.setEmmaParentId(rs.getInt("emmaParentId"));
+        detail.setEmmaUltimateParentId(rs.getInt("emmaUltimateParentId"));
+        detail.setEmmaCountry(rs.getString("emmaCountry"));
+
+        return detail;
+    }
+}
+
+
+
+import org.springframework.jdbc.core.RowMapper;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class EmmaMifidFirmRowMapper implements RowMapper<EmmaMifidFirm> {
+
+    @Override
+    public EmmaMifidFirm mapRow(ResultSet rs, int rowNum) throws SQLException {
+        EmmaMifidFirm firm = new EmmaMifidFirm();
+
+        firm.setEmmaId(rs.getInt("emmaId"));
+        firm.setMifidFirm(rs.getBoolean("isMifidFirm")); // DB column should match this name
+
+        return firm;
+    }
+}
