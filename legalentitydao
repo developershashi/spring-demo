@@ -1,0 +1,47 @@
+package com.uniti.producer.dao;
+
+import com.uniti.model.LegalEntityDetails;
+import com.uniti.model.EmmaMifidFirm;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Repository
+public class EmmaLegalEntityDAO {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<LegalEntityDetails> fetchAllLegalEntities() {
+        String sql = "SELECT emmaId, emmaLegalEntityName, legalEntityId, emmaParentId, " +
+                     "emmaUltimateParentId, emmaCountry FROM EmmaLegalEntitiesView";
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            LegalEntityDetails entity = new LegalEntityDetails();
+            entity.setEmmaId(rs.getInt("emmaId"));
+            entity.setEmmaLegalEntityName(rs.getString("emmaLegalEntityName"));
+            entity.setLegalEntityId(rs.getString("legalEntityId"));
+            entity.setEmmaParentId(rs.getInt("emmaParentId"));
+            entity.setEmmaUltimateParentId(rs.getInt("emmaUltimateParentId"));
+            entity.setEmmaCountry(rs.getString("emmaCountry"));
+            return entity;
+        });
+    }
+
+    public List<EmmaMifidFirm> fetchMifidFirms(Set<Integer> emmaIds) {
+        if (emmaIds == null || emmaIds.isEmpty()) return Collections.emptyList();
+
+        String placeholders = emmaIds.stream().map(id -> "?").collect(Collectors.joining(","));
+        String sql = "SELECT emmaId, isMifidFirm FROM EmmaMifidFirmView WHERE emmaId IN (" + placeholders + ")";
+
+        return jdbcTemplate.query(sql, emmaIds.toArray(), (rs, rowNum) -> {
+            EmmaMifidFirm firm = new EmmaMifidFirm();
+            firm.setEmmaId(rs.getInt("emmaId"));
+            firm.setMifidFirm(rs.getBoolean("isMifidFirm"));
+            return firm;
+        });
+    }
+}
