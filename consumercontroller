@@ -1,0 +1,30 @@
+package com.gs.amt.uniti.refdata.consumer.controller;
+
+import com.gs.amt.uniti.refdata.consumer.api.EmmaConsumerApi;
+import com.gs.amt.uniti.refdata.model.EmmaLegalEntityDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collection;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/legal-entity")
+public class LegalEntityController {
+
+    private final EmmaConsumerApi emmaConsumerApi;
+
+    public LegalEntityController(EmmaConsumerApi emmaConsumerApi) {
+        this.emmaConsumerApi = emmaConsumerApi;
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<Collection<EmmaLegalEntityDetail>> getAll() {
+        return ResponseEntity.ok(emmaConsumerApi.getAllLegalEntities());
+    }
+
+    @GetMapping("/by-id")
+    public ResponseEntity<List<EmmaLegalEntityDetail>> getById(@RequestParam List<String> ids) {
+        return ResponseEntity.ok(emmaConsumerApi.getLegalEntitiesById(ids));
+    }
+}
