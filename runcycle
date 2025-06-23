@@ -1,0 +1,15 @@
+private void runCycle() {
+    producer.runCycle(state -> {
+        long size = fetchAndAddData("SELECT * FROM RadarToEmmaAccountView", new RadarToEmmaAccountRowMapper(), state);
+        LOG.info("Loaded {} RadarToEmmaAccount records", size);
+
+        size = fetchAndAddData("SELECT * FROM EmmaVolckerRuleView", new EmmaVolckerRuleRowMapper(), state);
+        LOG.info("Loaded {} EmmaVolckerRule records", size);
+
+        size = fetchAndAddData("SELECT * FROM EmmaMifidFirmView", new EmmaMifidFirmRowMapper(), state);
+        LOG.info("Loaded {} EmmaMifidFirm records", size);
+
+        size = fetchAndAddData("SELECT * FROM EmmaLegalEntitiesView", new EmmaLegalEntityDetailRowMapper(), state);
+        LOG.info("Loaded {} EmmaLegalEntity records", size);
+    });
+}
