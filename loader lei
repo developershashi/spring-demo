@@ -1,0 +1,39 @@
+package com.uniti.producer.loader;
+
+import com.netflix.hollow.api.producer.HollowProducer;
+import com.netflix.hollow.api.producer.HollowProducer.WriteState;
+import com.netflix.hollow.core.write.objectmapper.HollowObjectMapper;
+import com.uniti.model.LegalEntityDetails;
+import com.uniti.model.EmmaMifidFirm;
+import com.uniti.producer.dao.EmmaLegalEntityDAO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Component
+public class EmmaLegalEntityLoader {
+
+    @Autowired
+    private EmmaLegalEntityDAO dao;
+
+    public long loadLegalEntityData(WriteState writeState) {
+        HollowObjectMapper mapper = new HollowObjectMapper(writeState);
+
+        List<LegalEntityDetails> entities = dao.fetchAllLegalEntities();
+        Set<Integer> ids = entities.stream().map(LegalEntityDetails::getEmmaId).collect(Collectors.toSet());
+        List<EmmaMifidFirm> mifidList = dao.fetchMifidFirms(ids);
+
+        // enrich with mifid firm flag
+        Map<Integer, Boolean> mifidMap = mifidList.stream()
+                .collect(Collectors.toMap(EmmaMifidFirm::getEmmaId, EmmaMifidFirm::isMifidFirm));
+
+        for (LegalEntityDetails entity : entities) {
+            entity.setMifidFirm(mifidMap.getOrDefault(entity.getEmmaId(), false));
+            mapper.add(entity);
+        }
+
+        return entities.size();
+    }
+}
