@@ -1,0 +1,73 @@
+@Component
+public class Producer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Producer.class);
+
+    private final HollowProducer producer;
+    private final HollowConsumer.BlobRetriever blobRetriever;
+    private final HollowConsumer.AnnouncementWatcher announcementWatcher;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EmmaLegalEntityLoader emmaLegalEntityLoader;
+
+    public Producer() {
+        File localPublishDir = new File("/tmp/hollow/uniti-refdata-producer");
+        HollowFilesystemPublisher publisher = new HollowFilesystemPublisher(localPublishDir.toPath());
+        HollowFilesystemAnnouncer announcer = new HollowFilesystemAnnouncer(localPublishDir.toPath());
+
+        this.blobRetriever = new HollowFilesystemBlobRetriever(localPublishDir.toPath());
+        this.announcementWatcher = new HollowFilesystemAnnouncementWatcher(localPublishDir.toPath());
+
+        this.producer = HollowProducer.withPublisher(publisher)
+                .withAnnouncer(announcer)
+                .build();
+    }
+
+    @PostConstruct
+    public void initializeData() {
+        restoreIfAvailable(producer, blobRetriever, announcementWatcher);
+
+        Executors.newSingleThreadScheduledExecutor()
+                .scheduleAtFixedRate(this::runCycle, 0, 5, TimeUnit.MINUTES);
+
+        LOG.info("Hollow producer initialized");
+    }
+
+    private void runCycle() {
+        producer.runCycle(state -> {
+            long size = 0;
+
+            // Load data from views
+            size += fetchAndAddData("SELECT * FROM brokensenvice.dbo.RadarToEmmaAccountView", new RadarToEmmaAccountRowMapper(), state);
+            LOG.info("Added {} RadarToEmmaAccount records", size);
+
+            size += fetchAndAddData("SELECT * FROM brokensenvice.dbo.EmmaVolckerRuleView", new EmmaVolckerRuleRowMapper(), state);
+            LOG.info("Added {} EmmaVolckerRule records", size);
+
+            size += emmaLegalEntityLoader.loadLegalEntityData(state);
+            LOG.info("Added {} EmmaLegalEntity records", size);
+        });
+    }
+
+    private <T> long fetchAndAddData(String sql, RowMapper<T> rowMapper, HollowProducer.WriteState state) {
+        List<T> records = jdbcTemplate.query(sql, rowMapper);
+        records.forEach(state::add);
+        return records.size();
+    }
+
+    public static void restoreIfAvailable(HollowProducer producer,
+                                          HollowConsumer.BlobRetriever retriever,
+                                          HollowConsumer.AnnouncementWatcher watcher) {
+        LOG.info("Attempting to restore prior state...");
+        long latestVersion = watcher.getLatestVersion();
+        if (latestVersion != HollowConsumer.AnnouncementWatcher.NO_ANNOUNCEMENT_AVAILABLE) {
+            producer.restore(latestVersion, retriever);
+            LOG.info("Restored version: {}", latestVersion);
+        } else {
+            LOG.info("No prior state available.");
+        }
+    }
+}
