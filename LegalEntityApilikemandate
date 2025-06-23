@@ -1,0 +1,60 @@
+package com.gs.amt.uniti.refdata.consumer.api;
+
+import com.gs.amt.uniti.refdata.api.UnitiRefDataApi;
+import com.gs.amt.uniti.refdata.consumer.app.AbstractHollowConsumer;
+import com.gs.amt.uniti.refdata.model.EmmaLegalEntityDetail;
+import com.netflix.hollow.api.consumer.index.HollowHashIndex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Component
+public class LegalEntityApi {
+
+    private static final Logger LOG = LoggerFactory.getLogger(LegalEntityApi.class);
+    private final AbstractHollowConsumer<UnitiRefDataApi> consumer;
+    private final HollowHashIndex index;
+
+    public LegalEntityApi(AbstractHollowConsumer<UnitiRefDataApi> consumer) {
+        this.consumer = consumer;
+
+        // Setup HollowHashIndex on legalEntityId field
+        this.index = new HollowHashIndex(
+                consumer.getApi().getDataAccess().getTypeDataAccess("EmmaLegalEntityDetail"),
+                "EmmaLegalEntityDetail",
+                "legalEntityId"
+        );
+    }
+
+    /**
+     * Get all legal entity details from the Hollow object store.
+     */
+    public Collection<EmmaLegalEntityDetail> getAllLegalEntities() {
+        try {
+            return consumer.getApi().getAllEmmaLegalEntityDetail();
+        } catch (Exception e) {
+            LOG.error("Failed to fetch all legal entities", e);
+            return List.of();
+        }
+    }
+
+    /**
+     * Get legal entity details by a list of legalEntityIds.
+     */
+    public List<EmmaLegalEntityDetail> getLegalEntitiesById(List<String> legalEntityIds) {
+        try {
+            return index.findMatches(legalEntityIds.toArray())
+                        .stream()
+                        .map(id -> consumer.getApi().getEmmaLegalEntityDetail(id))
+                        .collect(Collectors.toList());
+        } catch (Exception e) {
+            LOG.error("Error fetching legal entity details by ID", e);
+            return List.of();
+        }
+    }
+}
