@@ -1,0 +1,79 @@
+
+// File: EmmaConsumerApi.java
+package com.gs.amt.uniti.refdata.consumer.api;
+
+import com.gs.amt.uniti.refdata.model.EmmaLegalEntityDetail;
+import com.netflix.hollow.api.consumer.index.HollowHashIndex;
+import com.gs.amt.uniti.refdata.consumer.app.AbstractHollowConsumer;
+import com.gs.amt.uniti.refdata.api.UnitiRefDataApi;
+import com.netflix.hollow.core.read.engine.HollowReadStateEngine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Component
+public class EmmaConsumerApi {
+    private static final Logger LOG = LoggerFactory.getLogger(EmmaConsumerApi.class);
+    private final AbstractHollowConsumer<UnitiRefDataApi> consumer;
+
+    public EmmaConsumerApi(AbstractHollowConsumer<UnitiRefDataApi> consumer) {
+        this.consumer = consumer;
+    }
+
+    private HollowHashIndex buildIndex() {
+        return new HollowHashIndex(
+                (HollowReadStateEngine) consumer.getApi().getDataAccess().getTypeDataAccess("EmmaLegalEntityDetail"),
+                "EmmaLegalEntityDetail",
+                "legalEntityId"
+        );
+    }
+
+    public List<EmmaLegalEntityDetail> getLegalEntitiesById(List<String> legalEntityIds) {
+        try {
+            HollowHashIndex index = buildIndex();
+            return index.findMatches(legalEntityIds.toArray())
+                        .stream()
+                        .map(id -> consumer.getApi().getEmmaLegalEntityDetail(id))
+                        .collect(Collectors.toList());
+        } catch (Exception e) {
+            LOG.error("Error fetching legal entity details by ID", e);
+            return List.of();
+        }
+    }
+
+    public Collection<EmmaLegalEntityDetail> getAllLegalEntities() {
+        try {
+            return consumer.getApi().getAllEmmaLegalEntityDetail();
+        } catch (Exception e) {
+            LOG.error("Failed to fetch all legal entities", e);
+            return List.of();
+        }
+    }
+}
+
+// File: ConsumerApplication.java
+package com.gs.amt.uniti.refdata.consumer;
+
+import com.gs.amt.uniti.refdata.consumer.app.HollowFilesystemConsumer;
+import com.gs.amt.uniti.refdata.api.UnitiRefDataApi;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
+@SpringBootApplication
+public class ConsumerApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ConsumerApplication.class, args);
+    }
+
+    @Bean
+    public HollowFilesystemConsumer<UnitiRefDataApi> hollowConsumer() {
+        return new HollowFilesystemConsumer<>(UnitiRefDataApi.class);
+    }
+}
