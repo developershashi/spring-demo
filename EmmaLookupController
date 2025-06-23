@@ -1,0 +1,56 @@
+// File: EmmaLookupController.java
+package com.gs.amt.uniti.refdata.consumer.controller;
+
+import com.gs.amt.uniti.refdata.model.EmmaLegalEntityDetail;
+import com.gs.amt.uniti.refdata.consumer.api.EmmaConsumerApi;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/emma-lookup")
+public class EmmaLookupController {
+
+    @Autowired
+    private EmmaConsumerApi emmaConsumerApi;
+
+    @GetMapping
+    public ResponseEntity<?> lookupLegalEntity(@RequestParam String emmaFieldName,
+                                               @RequestParam String emmaFieldValue,
+                                               @RequestParam(defaultValue = "ALL") String countryCode) {
+        if (emmaFieldName == null || emmaFieldName.isEmpty()
+                || emmaFieldValue == null || emmaFieldValue.isEmpty()) {
+            return ResponseEntity.badRequest().body("emmaFieldName and emmaFieldValue are required");
+        }
+
+        // Optional: handle only supported field names
+        if (!List.of("LEI", "EMMA_ID").contains(emmaFieldName)) {
+            return ResponseEntity.badRequest().body("Unsupported emmaFieldName");
+        }
+
+        Collection<EmmaLegalEntityDetail> all = emmaConsumerApi.getAllLegalEntities();
+
+        List<EmmaLegalEntityDetail> matched = all.stream()
+                .filter(e -> {
+                    boolean matchField = false;
+                    if ("LEI".equalsIgnoreCase(emmaFieldName)) {
+                        matchField = emmaFieldValue.equalsIgnoreCase(e.getLegalEntityId());
+                    } else if ("EMMA_ID".equalsIgnoreCase(emmaFieldName)) {
+                        matchField = emmaFieldValue.equals(String.valueOf(e.getEmmaId()));
+                    }
+                    boolean matchCountry = "ALL".equalsIgnoreCase(countryCode)
+                            || countryCode.equalsIgnoreCase(e.getEmmaCountry());
+                    return matchField && matchCountry;
+                })
+                .collect(Collectors.toList());
+
+        if (matched.isEmpty()) {
+            return ResponseEntity.status(404).body("No matching legal entity found");
+        }
+        return ResponseEntity.ok(matched);
+    }
+}
