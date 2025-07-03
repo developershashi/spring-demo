@@ -1,0 +1,20 @@
+String clientIp = requestEvent.getContainerRequest().getHeaderString("X-Forwarded-For");
+
+if (clientIp == null || clientIp.isEmpty()) {
+    clientIp = requestEvent.getContainerRequest().getHeaderString("X-GS-Client-IP");
+}
+
+if (clientIp == null || clientIp.isEmpty()) {
+    clientIp = requestEvent.getContainerRequest().getRemoteAddr();
+}
+
+if (clientIp != null && clientIp.contains(",")) {
+    clientIp = clientIp.split(",")[0].trim();
+}
+
+
+
+
+logger.info("[{}] url [{}] endpoint [{}] from host [{}] request completed with code [{}] in {}ms",
+            httpMethod, path, methodName.get(), clientIp,
+            requestEvent.getContainerResponse().getStatus(), elapsedTime);
