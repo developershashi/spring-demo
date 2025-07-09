@@ -1,0 +1,62 @@
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+public class RequestLoggingFilter implements Filter {
+
+    @Override
+    public void init(FilterConfig filterConfig) {}
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+
+        long start = System.currentTimeMillis();
+
+        HttpServletRequest req = (HttpServletRequest) request;
+        HttpServletResponse res = (HttpServletResponse) response;
+
+        String clientIp = req.getHeader("X-Forwarded-For");
+        if (clientIp == null || clientIp.isEmpty()) {
+            clientIp = req.getRemoteAddr();
+        }
+        if (clientIp.contains(",")) {
+            clientIp = clientIp.split(",")[0].trim();
+        }
+
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            long duration = System.currentTimeMillis() - start;
+
+            System.out.printf("[%-4s] %-30s from %-15s returned [%3d] in %4dms%n",
+                    req.getMethod(),
+                    req.getRequestURI(),
+                    clientIp,
+                    res.getStatus(),
+                    duration);
+        }
+    }
+
+    @Override
+    public void destroy() {}
+}
+
+
+
+
+
+
+////
+
+private void initializeHttpService() {
+    logger.debug("Initializing HttpService");
+
+    HttpService httpService = context.getBean(HttpService.class);
+
+    // Register your filter before starting the service
+    httpService.registerFilter(new RequestLoggingFilter(), "/*");
+
+    httpService.start();
+}
