@@ -1,0 +1,47 @@
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Priority;
+import javax.ws.rs.container.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.ext.Provider;
+import java.io.IOException;
+
+@Provider
+@Priority(1) // High priority filter
+public class RequestLoggingFilter implements ContainerRequestFilter, ContainerResponseFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(RequestLoggingFilter.class);
+
+    private static final String START_TIME_KEY = "Request-Start-Time";
+
+    @Context
+    private HttpServletRequest httpRequest;
+
+    @Override
+    public void filter(ContainerRequestContext requestContext) throws IOException {
+        requestContext.setProperty(START_TIME_KEY, System.currentTimeMillis());
+    }
+
+    @Override
+    public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
+        Object startObj = requestContext.getProperty(START_TIME_KEY);
+        long duration = -1;
+        if (startObj instanceof Long) {
+            duration = System.currentTimeMillis() - (Long) startObj;
+        }
+
+        String method = requestContext.getMethod();
+        String path = requestContext.getUriInfo().getRequestUri().toString();
+        int status = responseContext.getStatus();
+
+        // Client IP
+        String clientIp = httpRequest.getHeader("X-Forwarded-For");
+        if (clientIp == null || clientIp.isEmpty()) {
+            clientIp = httpRequest.getRemoteAddr(); // fallback
+        }
+
+        logger.info("[{}] {} from [{}] returned [{}] in {}ms",
+                method, path, clientIp, status, duration);
+    }
+}
