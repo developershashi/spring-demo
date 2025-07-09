@@ -1,0 +1,51 @@
+import org.glassfish.jersey.server.monitoring.ApplicationEvent;
+import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
+import org.glassfish.jersey.server.monitoring.RequestEvent;
+import org.glassfish.jersey.server.monitoring.RequestEventListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ResourceRequestEventListener implements ApplicationEventListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(ResourceRequestEventListener.class);
+
+    @Override
+    public void onEvent(ApplicationEvent applicationEvent) {
+        // Optional: log app startup/shutdown
+    }
+
+    @Override
+    public RequestEventListener onRequest(RequestEvent event) {
+        return new RequestEventListener() {
+            private final ThreadLocal<Long> startTime = new ThreadLocal<>();
+
+            @Override
+            public void onEvent(RequestEvent event) {
+                switch (event.getType()) {
+                    case RESOURCE_METHOD_START:
+                        startTime.set(System.currentTimeMillis());
+                        break;
+
+                    case FINISHED:
+                        long duration = System.currentTimeMillis() - startTime.get();
+                        String method = event.getContainerRequest().getMethod();
+                        String uri = event.getContainerRequest().getRequestUri().toString();
+                        String clientIp = event.getContainerRequest().getHeaderString("X-Forwarded-For");
+                        if (clientIp == null || clientIp.isEmpty()) {
+                            clientIp = "UNKNOWN";
+                        } else if (clientIp.contains(",")) {
+                            clientIp = clientIp.split(",")[0].trim();
+                        }
+                        int status = event.getContainerResponse().getStatus();
+
+                        logger.info("[{}] {} from [{}] returned [{}] in {}ms",
+                                method, uri, clientIp, status, duration);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        };
+    }
+}
